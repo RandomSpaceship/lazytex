@@ -1,0 +1,12 @@
+% Text to copy from the PDF. Ligatures, quotes, a dash, Greek
+% letters, and large math symbols from the cmex fonts (sum, parentheses,
+% integral). The cmex symbols need \input{glyphtounicode-cmex}.
+\documentclass{standalone}
+\usepackage{tikz}
+\begin{document}
+\begin{tikzpicture}
+\node[align=left] {office \& efficient fluff --- ``quotes'' \\
+  $\alpha+\beta\le\sum_{i=1}^n x_i^2 \to \infty$ \\
+  $\displaystyle\left(\frac{a}{b}\right)\int_0^1 f\,dx \quad \sqrt{2}$};
+\end{tikzpicture}
+\end{document}

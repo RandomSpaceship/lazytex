@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/RandomSpaceship/lazytex/main/docs/index.schema.json",
+  "title": "lazytex-index",
+  "description": "An index file: one layer of a scope. lazytex's index-full.json is the full scope in one layer; a child repo narrows it into layers (for example index-medium.json and index-full-extra.json). See docs/formats.md.",
+  "type": "object",
+  "required": ["format", "version", "scope", "texlive", "packages", "generated"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "lazytex-index" },
+    "version": { "const": 1 },
+    "scope": {
+      "description": "The name of this layer: 'full' for lazytex's full index, or a name that the child repo gives (for example 'medium' or 'full-extra'). The file is index-<scope>.json, and its generated files are in index/generated/<scope>/.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "extends": {
+      "description": "The layer under this one. Not in the lowest layer.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "texlive": {
+      "description": "The TeX Live release that the packages come from.",
+      "type": "object",
+      "required": ["year", "revision", "frozen"],
+      "additionalProperties": false,
+      "properties": {
+        "year": { "type": "integer", "minimum": 2000 },
+        "revision": { "description": "Revision of texlive.tlpdb.", "type": "integer", "minimum": 1 },
+        "frozen": { "description": "true for a final (tlnet-final) release.", "type": "boolean" }
+      }
+    },
+    "trees": {
+      "description": "Where each tree is in the engine's file system. Only in the lowest layer.",
+      "type": "object",
+      "required": ["texmf-dist", "texmf-var"],
+      "additionalProperties": false,
+      "properties": {
+        "texmf-dist": { "$ref": "#/$defs/absolutePath" },
+        "texmf-var": { "$ref": "#/$defs/absolutePath" }
+      }
+    },
+    "packages": {
+      "description": "The TeX Live packages of this scope, by name.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/package" }
+    },
+    "generated": {
+      "description": "Files that are in no package and differ between the scopes, by tree: the generated files of the scope that ends at this layer. Each file is at index/generated/<scope>/<tree>/<path> in the release.",
+      "type": "object",
+      "required": ["texmf-dist", "texmf-var"],
+      "additionalProperties": false,
+      "properties": {
+        "texmf-dist": { "$ref": "#/$defs/fileSizes" },
+        "texmf-var": { "$ref": "#/$defs/fileSizes" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["extends"] },
+      "then": { "not": { "required": ["trees"] } },
+      "else": { "required": ["trees"] }
+    }
+  ],
+  "$defs": {
+    "absolutePath": { "type": "string", "pattern": "^/[^\\s]*[^/]$" },
+    "relativePath": {
+      "description": "A path relative to its tree: no leading '/', and no '.' or '..' parts.",
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$)).+$"
+    },
+    "sha512": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+    "fileSizes": {
+      "description": "Size in bytes of each file, by path relative to its tree.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/relativePath" },
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "package": {
+      "type": "object",
+      "required": ["revision", "archiveBytes", "sha512", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "revision": { "description": "TeX Live revision of the package.", "type": "integer", "minimum": 1 },
+        "archiveBytes": { "description": "Size of TeX Live's archive of the package.", "type": "integer", "minimum": 1 },
+        "sha512": { "description": "SHA-512 of TeX Live's archive (texlive.tlpdb, containerchecksum).", "$ref": "#/$defs/sha512" },
+        "releaseArchive": {
+          "description": "The package's archive on a GitHub release, if a release hosts one: this release or another one (for example the release of the repo that this index comes from). It is not byte-identical to TeX Live's archive.",
+          "type": "object",
+          "required": ["url", "bytes", "sha512"],
+          "additionalProperties": false,
+          "properties": {
+            "url": { "description": "Absolute URL of the release asset: https://github.com/OWNER/REPO/releases/download/TAG/NAME.", "type": "string", "pattern": "^https://github\\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/releases/download/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$" },
+            "bytes": { "type": "integer", "minimum": 1 },
+            "sha512": { "$ref": "#/$defs/sha512" }
+          }
+        },
+        "depends": {
+          "description": "The packages that this package needs (TeX Live's depend entries, without collections and without packages that the index does not have). Only the direct dependencies: the reader computes the closure. Each name is in the same layer, or in a layer under it.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "loads": {
+          "description": "Present only if the package was measured, and then also when it is empty. All the packages that the measured documents of the package read (not only the direct ones), without the package itself. Each name is in the same layer, or in a layer under it.",
+          "$ref": "#/$defs/packageSet"
+        },
+        "files": {
+          "description": "The package's files that the engine can read, relative to the texmf-dist tree. Each entry is the file's size, or {bytes, loads} for an entry file whose measured set differs from the package's loads.",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/relativePath" },
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "integer", "minimum": 0 },
+              {
+                "type": "object",
+                "required": ["bytes", "loads"],
+                "additionalProperties": false,
+                "properties": {
+                  "bytes": { "type": "integer", "minimum": 0 },
+                  "loads": { "$ref": "#/$defs/packageSet" }
+                }
+              }
+            ]
+          },
+          "minProperties": 1
+        }
+      }
+    },
+    "packageSet": {
+      "description": "Package names, in alphabetical order.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  }
+}

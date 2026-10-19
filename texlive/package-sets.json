@@ -1,0 +1,39 @@
+{
+  "comment": "The TeX Live package sets of lazytex. texlive/default.nix reads this file. docs/design.md, 'Where the TeX files come from', explains each part.",
+  "excludeCollections": [
+    "collection-context",
+    "collection-luatex",
+    "collection-xetex"
+  ],
+  "full": {
+    "scheme": "scheme-full"
+  },
+  "_hostedComment": "The packages that lazytex's release hosts as archives. The build adds their dependencies and the packages of lazytex's bundle. docs/design.md, 'Hosted packages', has the criteria.",
+  "hosted": [
+    "geometry", "hyperref", "graphics", "tools", "booktabs", "multirow",
+    "enumitem", "caption", "float", "fancyhdr", "titlesec", "parskip", "url",
+    "microtype",
+    "amsmath", "amsfonts", "amscls", "mathtools", "physics", "cancel",
+    "braket", "siunitx", "mhchem", "chemfig",
+    "lm", "babel", "babel-english",
+    "listings", "algorithmicx", "algorithms", "algorithm2e",
+    "pgf", "pgfplots", "circuitikz", "tikz-cd", "tikz-3dplot", "forest",
+    "tcolorbox"
+  ],
+  "excludePaths": [
+    "tex/context",
+    "tex/luatex",
+    "tex/lualatex",
+    "tex/luameta",
+    "tex/xetex",
+    "tex/xelatex",
+    "tex/optex",
+    "fonts/opentype",
+    "fonts/misc/xetex"
+  ],
+  "_generatedFilesComment": "The files of texmf-var that pdfTeX reads. The index keeps only these, and an ls-R for each tree.",
+  "generatedFiles": [
+    "fonts/map/pdftex/updmap/pdftex.map",
+    "tex/generic/config/language.dat"
+  ]
+}

@@ -1,0 +1,42 @@
+% A note that loads many packages of the medium scope that are not in the
+% bundles. quartz-resources measured the rounds of installs and the time to
+% the first PDF with it (docs/findings/rounds-measurement.md). No test of
+% this repo uses it.
+\documentclass{article}
+\usepackage{microtype}
+\usepackage{booktabs, multirow, tabularx}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{csquotes}
+\usepackage{physics, cancel}
+\usepackage[version=4]{mhchem}
+\usepackage{chemfig}
+\usepackage[most]{tcolorbox}
+\usepackage{tikz-cd}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\pagestyle{empty}
+\begin{document}
+\section{Notes}\label{sec:notes}
+\begin{tcolorbox}[title=Summary]
+  As \enquote{\cref{sec:notes}} says, $\dv{x}{t} = \cancel{v_0} + a t$, and
+  \ce{2H2 + O2 -> 2H2O}.
+\end{tcolorbox}
+\begin{itemize}[noitemsep]
+  \item \chemfig{H-C(-[2]H)(-[6]H)-H}
+  \item $\abs{\vb{v}} = \norm{\vb{u}}$
+\end{itemize}
+\begin{tikzcd}
+  A \arrow[r, "f"] \arrow[d] & B \arrow[d, "g"] \\
+  C \arrow[r] & D
+\end{tikzcd}
+\begin{table}[h]
+  \caption{Values}
+  \begin{tabularx}{0.6\linewidth}{lX}
+    \toprule
+    \multirow{2}{*}{Name} & One \\
+                          & Two \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+\end{document}

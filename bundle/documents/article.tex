@@ -1,0 +1,29 @@
+% An ordinary article with the AMS math packages, graphicx and xcolor: the
+% kernel, the standard classes and the packages that most documents load.
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb, amsthm, mathtools}
+\usepackage{graphicx, xcolor}
+\newtheorem{theorem}{Theorem}
+\begin{document}
+\section{Introduction}
+Text with \emph{emphasis}, \textbf{bold}, \textsf{sans serif}, \texttt{typewriter},
+and \textcolor{blue}{colour}. Inline math $x^2 + \frac{a}{b} \le \sqrt{2}$ and
+$\mathbb{R}$, $\mathcal{C}$, $\mathfrak{g}$.
+\begin{theorem}
+For all $n \ge 1$,
+\begin{align}
+  \sum_{i=1}^{n} i &= \frac{n(n+1)}{2}, \\
+  \int_0^1 f(t)\,\mathrm{d}t &\coloneqq \lim_{k\to\infty} \frac{1}{k} \sum_{j=1}^{k} f\!\left(\tfrac{j}{k}\right).
+\end{align}
+\end{theorem}
+\begin{proof}
+By induction, with $\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}$ and $\binom{n}{k}$.
+\end{proof}
+\subsection{A list}
+% enumerate, not itemize: the itemize bullet is a TS1 glyph, and TS1 at this
+% size needs cm-super (65 MB).
+\begin{enumerate}
+  \item One \footnote{A footnote.}
+  \item Two, \small small \normalsize and \large large
+\end{enumerate}
+\end{document}

@@ -1,0 +1,45 @@
+{
+  "nodes": {
+    "busytex": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792163696,
+        "narHash": "sha256-SH4to937D+REk7tSne44ErnBqAbdFw+h88FufAnN1RA=",
+        "owner": "busytex",
+        "repo": "busytex",
+        "rev": "eb36aae169f7d71e70760a84ef80156b33c0f820",
+        "type": "github"
+      },
+      "original": {
+        "owner": "busytex",
+        "repo": "busytex",
+        "rev": "eb36aae169f7d71e70760a84ef80156b33c0f820",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1792295010,
+        "narHash": "sha256-F7meJtbqGttmUoMmYjRRgkVs42sn7bh7vvRvLPlUN98=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "8ce73368d1efd4d657e9064d29b144a52046b4e8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-26.05",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "busytex": "busytex",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

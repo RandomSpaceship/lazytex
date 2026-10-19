@@ -1,0 +1,12 @@
+% Mirror-package test document: it loads a TikZ library that is only in the
+% full scope (wargame.hex, package wargame). In the medium scope, TikZ
+% reports "I did not find the tikz library", and the switch to the full scope
+% must find tikzlibrarywargame.hex.code.tex (tests/resources.test.cjs).
+\documentclass{standalone}
+\usepackage{tikz}
+\usetikzlibrary{wargame.hex}
+\begin{document}
+\begin{tikzpicture}
+  \draw[thick] (0,0) -- (1,0.5) -- (2,0);
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,12 @@
+{
+  "_comment": "The example app's scopes. medium: the default, a TeX tree of these collections (texlive.treeOf of lazytex). full-extra: all other packages of lazytex's full index.",
+  "medium": {
+    "scheme": "scheme-medium",
+    "addCollections": [
+      "collection-latexextra",
+      "collection-pictures",
+      "collection-bibtexextra"
+    ]
+  },
+  "rest": "full-extra"
+}

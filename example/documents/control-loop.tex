@@ -1,0 +1,37 @@
+\documentclass{standalone}
+\usepackage{tikz}
+\usetikzlibrary{positioning,calc,fit,arrows.meta}
+
+\newcommand{\hborder}{\hspace*{1cm}}
+\begin{document}
+	\hborder
+	\tikzset{
+		box/.style = {draw, rectangle, minimum height=1.5cm, minimum width=3cm, align=center},
+		op/.style = {draw, thick, font=\Large, circle, minimum width=1cm, minimum height=1cm, align=center},
+		clabel/.style = {text width=2cm, align=center},
+		ntxt/.style = {font=\normalsize},
+	}
+
+	\begin{tikzpicture}[auto, thick, >={Stealth}, node distance=2cm, font=\Large, label distance=2pt]
+		\node[op](sum){};
+		\draw[->] (sum) ++(-2.5cm, 0)
+			-- (sum)
+			node[midway, below]{$R(s)$}
+			node[at end, above left]{$+$}
+			;
+		\node[box, right=3cm of sum](sys){$G(s)$};
+		\node[box, below=1cm of sys](feedback){$H(s)$};
+		\draw[->] (sum) -- (sys);
+		\draw[->] (feedback) -| (sum)
+			node[at end, below left]{$-$}
+			;
+		\draw[->] (sys.east) -- ++(5,0)
+			coordinate[pos=0.6](pickoff){}
+			;
+		\draw[->] (pickoff) |- (feedback);
+		\node [below right] at (pickoff){$C(s)$};
+
+
+	\end{tikzpicture}
+	\hborder
+\end{document}

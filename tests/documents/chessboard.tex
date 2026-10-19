@@ -1,0 +1,9 @@
+% Mirror-package test document: chessboard and its fonts (SkakNew, Type 1)
+% are in TeX Live's full scope but not in the medium scope. The engine must
+% switch to the full scope and load the packages from outside the medium layer
+% (tests/resources.test.cjs). The fonts also need the full scope's pdftex.map.
+\documentclass{standalone}
+\usepackage{chessboard}
+\begin{document}
+\chessboard[setpieces={Ke1,Qd1,Ra1,Pe4,ke8,qd8,nf6,pe5}, showmover=false]
+\end{document}

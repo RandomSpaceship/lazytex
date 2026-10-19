@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/RandomSpaceship/lazytex/main/docs/release-manifest.schema.json",
+  "title": "lazytex-release",
+  "description": "manifest.json of a release of lazytex or of a child repo. See docs/formats.md.",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "release",
+    "repository",
+    "upstream",
+    "files"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "lazytex-release"
+    },
+    "version": {
+      "const": 1
+    },
+    "release": {
+      "description": "The release name: the git tag of the GitHub release. The releaseArchive URLs of the index files name it. \"development\" for a build that is never published.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "repository": {
+      "description": "The GitHub repository of the release, OWNER/REPO.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"
+    },
+    "upstream": {
+      "description": "The upstream versions that the release was built from. A child release copies them from its parent release.",
+      "type": "object",
+      "required": [
+        "busytex",
+        "texliveSource",
+        "emscripten",
+        "texliveData"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "busytex": {
+          "description": "BusyTeX commit.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "texliveSource": {
+          "description": "URL of the TeX Live source archive of the engine.",
+          "type": "string"
+        },
+        "emscripten": {
+          "type": "string"
+        },
+        "texliveData": {
+          "description": "The TeX Live release of the TeX files (as 'texlive' in the index).",
+          "type": "object",
+          "required": [
+            "year",
+            "revision",
+            "frozen"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "year": {
+              "type": "integer"
+            },
+            "revision": {
+              "type": "integer"
+            },
+            "frozen": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "files": {
+      "description": "Every other file of the release, by path, with its size and SHA-512. A file marked parent is not in this release: the app gets it from the parent release, at the same path.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$)).+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "bytes",
+          "sha512"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha512": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{128}$"
+          },
+          "parent": {
+            "const": true
+          }
+        }
+      }
+    },
+    "parent": {
+      "description": "Only in a child release: the parent release (lazytex's), whose files the child uses. The files marked parent come from it.",
+      "type": "object",
+      "required": [
+        "repository",
+        "release",
+        "manifestSha512"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"
+        },
+        "release": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "manifestSha512": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{128}$"
+        }
+      }
+    }
+  }
+}

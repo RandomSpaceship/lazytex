@@ -1,0 +1,10 @@
+% Fails on purpose (undefined control sequence) partway through a TikZ picture,
+% to check the engine is still usable after an error exit.
+\documentclass{standalone}
+\usepackage{tikz}
+\begin{document}
+\begin{tikzpicture}
+  \draw (0,0) -- (1,1);
+  \thiscommanddoesnotexist
+\end{tikzpicture}
+\end{document}

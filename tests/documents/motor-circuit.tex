@@ -1,0 +1,152 @@
+\documentclass{standalone}
+\usepackage{tikz}
+\usepackage{siunitx}
+\usetikzlibrary{positioning,fit,arrows.meta,shapes.geometric}
+\usetikzlibrary{calc,patterns,decorations.pathmorphing,decorations.markings}
+
+\usepackage[RPvoltages,european]{circuitikz}
+
+\ctikzset{diodes/scale=0.8}
+\ctikzset{logic ports=ieee}
+
+\makeatletter
+\pgfdeclareshape{anchored cylinder}{
+	\inheritsavedanchors[from=cylinder]
+	\inheritanchorborder[from=cylinder]
+	\inheritbackgroundpath[from=cylinder]
+
+	% Inherit all the standard cylinder anchors
+	\inheritanchor[from=cylinder]{center}
+	\inheritanchor[from=cylinder]{north}
+	\inheritanchor[from=cylinder]{south}
+	\inheritanchor[from=cylinder]{east}
+	\inheritanchor[from=cylinder]{west}
+
+	\inheritanchor[from=cylinder]{before top}
+	\inheritanchor[from=cylinder]{after top}
+	%\anchor{top middle}{%
+	\anchor{top}{%
+		\csname pgf@anchor@cylinder@before top\endcsname
+		\pgf@xa=\pgf@x
+		\pgf@ya=\pgf@y
+		\csname pgf@anchor@cylinder@after top\endcsname
+		\advance\pgf@x by \pgf@xa
+		\advance\pgf@y by \pgf@ya
+		\pgf@x=.5\pgf@x
+		\pgf@y=.5\pgf@y
+	}%
+
+	\inheritanchor[from=cylinder]{before bottom}
+	\inheritanchor[from=cylinder]{after bottom}
+	\anchor{bottom}{%
+		\csname pgf@anchor@cylinder@before bottom\endcsname
+		\pgf@xa=\pgf@x
+		\pgf@ya=\pgf@y
+		\csname pgf@anchor@cylinder@after bottom\endcsname
+		\advance\pgf@x by \pgf@xa
+		\advance\pgf@y by \pgf@ya
+		\pgf@x=.5\pgf@x
+		\pgf@y=.5\pgf@y
+	}%
+}
+\makeatother
+
+\tikzset{partial ellipse/.style args={#1:#2:#3}{
+		insert path={+ (#1:#3) arc (#1:#2:#3)}
+}}%
+\tikzset{around/.style={
+	->, partial ellipse=-100:150:0.2cm and 0.5cm
+}}%
+\tikzset{revaround/.style={
+	->, partial ellipse=280:30:0.2cm and 0.5cm
+}}%
+
+\tikzset{label/.style={
+	outer sep=5pt
+}}%
+
+\tikzset{rotational mass/.style={
+	draw, anchored cylinder,
+	aspect=0.5,
+	minimum width=1cm,
+	minimum height=2cm
+}}%
+\tikzset{rotational mass rotate/.style args={#1}{
+	rotational mass, shape border rotate=#1
+}}%
+\tikzset{rotational spring/.style={
+	decorate,
+	decoration={coil, pre length=0.3cm, post length=0.3cm, segment length=1.5mm, amplitude=1.5mm}
+}}%
+
+\tikzset{mass/.style={
+	draw
+}}%
+\tikzset{spring/.style={
+	decorate,
+	decoration={zigzag, pre length=0.3cm, post length=0.3cm, segment length=6}
+}}%
+\tikzset{damper/.style={
+	decorate,
+	decoration={markings,
+	  mark connection node=dmp,
+	  mark=at position 0.5 with
+	  {
+		\node (dmp) [thick,inner sep=0pt,transform shape,rotate=-90,minimum width=13pt,minimum height=5pt,draw=none] {};
+		\draw [] ($(dmp.north east)+(5pt,0)$) -- (dmp.south east) -- (dmp.south west) -- ($(dmp.north west)+(5pt,0)$);
+		\draw [] ($(dmp.north)+(0,-5pt)$) -- ($(dmp.north)+(0,5pt)$);
+	  }
+	}
+}}%
+
+\tikzset{ground/.style={
+	fill,pattern=north east lines,draw=none
+}}%
+\tikzset{hground/.style={
+	ground,minimum width=0.75cm,minimum height=0.3cm
+}}%
+\tikzset{vground/.style={
+	ground,minimum height=0.75cm,minimum width=0.3cm
+}}%
+
+\newcommand{\hborder}{\hspace*{0cm}}
+\begin{document}
+    \hborder
+	\begin{circuitikz}[auto, >={Stealth}, american voltages]
+		\draw (0,0) to[R=$R$] ++(2,0)
+			-- ++(2,0) node[above]{$L\approx 0$}
+			-- ++(2,0)
+			+(0,-1) node[elmech](motor){}
+			to[-] ++(0,0)
+			(motor.south) to[-] (6,-2)
+			to[-] (0,-2)
+			++(0.1,0)
+			to[open, v>=$e_a(t)$] ++(0,2)
+			(5.9,0) to[open, v={$V_b(t)=K_b \omega_m$}, open voltage position=legacy] ++(0,-2)
+			;
+		\draw[-] (motor.center) -- ++(2.2, 0) coordinate(motorend){};
+		\draw (motor.center) ++(1, 0) [around] node[label, above]{$\theta_m(t)$};
+		\draw[->] (2, -1) arc(180:-90:0.5cm);
+		\node[] at (2.5, -1){$I_a(t)$};
+
+		\draw[thick] (motorend)
+			+(0, 0.5) node[above]{$N_1=1$} -- +(0,-0.5)
+			++(0, -1.1) +(0,0.5) -- +(0,-0.5) node[below]{$N_2=200$}
+			+(0,0) coordinate(sysstart){}
+			;
+		\draw[rotational spring] (sysstart) -- ++(2.5,0)
+			node[midway, label]{\qty{150}{N.m/rad}}
+			coordinate(sys1){}
+			;
+		\draw (sys1) ++(0.5,0) [revaround] node[label, above]{$\theta_L(t)$};
+		\draw (sys1) -- ++(1,0)
+			node[rotational mass rotate=180, anchor=top](j1){\qty{1}{kg.m^2}} ++(2,0);
+		\draw[rotational spring] (j1.20) -- ++(2,0) node[midway, label]{\qty{5}{N.m/rad}};
+		\draw[damper] (j1.340) -- ++(2,0)
+			node[midway, label, below]{\qty{2}{N.m.s/rad}}
+			coordinate(d1end){};
+		\node [right, vground, minimum height=1.5cm](gnd) at (j1.bottom -| d1end){};
+		\draw[draw, thick] (gnd.north west) -- (gnd.south west);
+	\end{circuitikz}
+    \hborder
+\end{document}

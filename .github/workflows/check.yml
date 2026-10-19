@@ -1,0 +1,70 @@
+# Runs all tests (`nix flake check`) on each push and pull request.
+#
+# The TeX trees come from the Nix binary cache (cache.nixos.org), not from
+# the TeX Live mirrors. Our own outputs (the engine, the library, the index,
+# the loads measurement, the bundles, the archives, the releases and the
+# checks) are not in that cache. cache-nix-action keeps them in the GitHub
+# Actions cache, so that a run builds only what changed.
+name: check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  flake-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # The runner has about 14 GB of free disk. The TeX trees and the engine
+      # build need several GB, so remove large tools that this job does not use.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - uses: actions/checkout@v7
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Restores the Nix store of the last run (the newest cache with this
+      # prefix), and saves the store at the end of the job. Before the save,
+      # the action collects garbage down to the size limit. The GC roots of
+      # the last step keep our own outputs, and the garbage collection removes
+      # all other paths: the TeX trees and the toolchains (about 11 GB
+      # together). The next run downloads those from cache.nixos.org again,
+      # which is as fast as a restore from this cache. The whole store would
+      # not fit: the cache of a repo is limited to 10 GB, and the runner does
+      # not have the disk for the store and its compressed copy at the same
+      # time.
+      - uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ github.sha }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          gc-max-store-size-linux: 1G
+          # Remove the older caches of this job, so that only the newest stays.
+          purge: true
+          purge-prefixes: nix-${{ runner.os }}-
+          purge-created: 0
+          purge-primary-key: never
+
+      - name: Run all checks
+        run: nix flake check --print-build-logs
+
+      # GC roots for our own outputs and the checks, so that the garbage
+      # collection before the cache save keeps them. A check whose inputs did
+      # not change is then not run again.
+      - name: Keep our outputs in the cache
+        run: |
+          mkdir -p .gcroots
+          for output in engine library index bundle-trace bundle archives loads release example-release; do
+            nix build ".#$output" --out-link ".gcroots/$output"
+          done
+          for check in $(nix eval --raw .#checks.x86_64-linux --apply 'checks: builtins.concatStringsSep " " (builtins.attrNames checks)'); do
+            nix build ".#checks.x86_64-linux.$check" --out-link ".gcroots/check-$check"
+          done
+          nix path-info -rs .gcroots/* | sort -u | awk '{ total += $2 } END { printf "kept: %.2f GB\n", total / 1e9 }'
