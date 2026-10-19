@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The engine: licences and source</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, sans-serif; line-height: 1.5; max-width: 50rem; margin: 2rem auto; padding: 0 1rem; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid #8888; padding: 0.3rem 0.5rem; text-align: left; vertical-align: top; }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; }
+</style>
+
+<h1>The engine: licences and source</h1>
+
+<p><code>busytex.js</code> and <code>busytex.wasm</code> are one program: pdfTeX from TeX Live, compiled to
+WebAssembly with the build scripts of BusyTeX and with Emscripten. lazytex distributes this program under the
+GNU General Public License, version 3 or (at your option) any later version
+(<a href="licenses/GPL-3.0.txt">licenses/GPL-3.0.txt</a>). pdfTeX is under GPL-2.0-or-later, which permits
+this.</p>
+
+<h2>Parts and their licences</h2>
+
+<table>
+  <tr><th>Part</th><th>Licence</th><th>Text</th></tr>
+  <tr><td>pdfTeX and web2c (TeX Live)</td><td>GPL-2.0-or-later</td><td><a href="licenses/GPL-2.0.txt">GPL-2.0.txt</a></td></tr>
+  <tr><td>xpdf, as TeX Live has it</td><td>GPL-2.0 or GPL-3.0</td><td><a href="licenses/GPL-2.0.txt">GPL-2.0.txt</a>, <a href="licenses/GPL-3.0.txt">GPL-3.0.txt</a></td></tr>
+  <tr><td>kpathsea (TeX Live)</td><td>LGPL-2.1-or-later</td><td><a href="licenses/LGPL-2.1.txt">LGPL-2.1.txt</a></td></tr>
+  <tr><td>SyncTeX (TeX Live)</td><td>MIT-style</td><td><a href="licenses/synctex.txt">synctex.txt</a></td></tr>
+  <tr><td>libpng (TeX Live)</td><td>libpng-2.0</td><td><a href="licenses/libpng.txt">libpng.txt</a></td></tr>
+  <tr><td>zlib (TeX Live)</td><td>Zlib</td><td><a href="licenses/zlib.txt">zlib.txt</a></td></tr>
+  <tr><td><code>busytex.c</code> (BusyTeX)</td><td>MIT, according to BusyTeX's README. No licence file provided.</td><td></td></tr>
+  <tr><td>Emscripten's JavaScript runtime and system libraries</td><td>MIT or UIUC/NCSA</td><td><a href="licenses/emscripten.txt">emscripten.txt</a></td></tr>
+  <tr><td>musl libc (Emscripten)</td><td>MIT</td><td><a href="licenses/musl.txt">musl.txt</a></td></tr>
+  <tr><td>libc++, libc++abi and compiler-rt (Emscripten)</td><td>Apache-2.0 WITH LLVM-exception</td><td><a href="licenses/libcxx.txt">libcxx.txt</a>, <a href="licenses/libcxxabi.txt">libcxxabi.txt</a>, <a href="licenses/compiler-rt.txt">compiler-rt.txt</a></td></tr>
+</table>
+
+<p>The licence texts come from the source of this build.</p>
+
+<h2>The source</h2>
+
+<p>The corresponding source of this build:</p>
+<ul>
+  <li>TeX Live source: <a href="@texliveSource@">@texliveSource@</a></li>
+  <li>BusyTeX's build scripts: <a href="https://github.com/busytex/busytex/tree/@busytex@">https://github.com/busytex/busytex/tree/@busytex@</a></li>
+  <li>Emscripten @emscripten@, from nixpkgs</li>
+  <li>lazytex's build of the engine (<code>engine/default.nix</code>, with the pins in <code>flake.lock</code>):
+    <a href="https://github.com/RandomSpaceship/lazytex">https://github.com/RandomSpaceship/lazytex</a>, at the
+    commit of the release that has this file</li>
+</ul>
+
+<p>A build of the engine changes no file of TeX Live or BusyTeX. <code>engine/default.nix</code> says which
+settings it gives to BusyTeX's Makefile.</p>
+</html>

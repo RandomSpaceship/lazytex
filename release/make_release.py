@@ -3,17 +3,17 @@
 lazytex's own release and a child repo's release use this script. Writes into
 --out (docs/formats.md describes each file):
 
-  NOTICE.md                     the licences of the release's parts, and
+  NOTICE.html                   the licences of the release's parts, and
                                 where their source is
   manifest.json                 every file of the release with its size and
                                 SHA-512, and the upstream versions. A child's
                                 manifest also lists the files that it uses from
                                 the parent release (marked "parent": true).
-  busytex/busytex.js, busytex/busytex.wasm, busytex/NOTICE.md,
+  busytex/busytex.js, busytex/busytex.wasm, busytex/NOTICE.html,
   busytex/licenses/
                                 the engine, with its notice and licence
                                 texts (--engine; lazytex only)
-  js/client.js, js/worker.js, js/types/*.d.ts, js/LICENSE.md
+  js/client.js, js/worker.js, js/types/*.d.ts, js/LICENSE.txt
                                 the library, with lazytex's licence (--js;
                                 lazytex only)
   <name>                        each bundle (--bundle NAME=DIR): bundle.tar
@@ -45,6 +45,7 @@ lazytex's index) keeps it: the parent release hosts that package.
 
 import argparse
 import hashlib
+from html import escape
 import json
 import re
 import shutil
@@ -71,37 +72,53 @@ HISTORIC_ARCHIVE = "https://ftp.math.utah.edu/pub/tex/historic/systems/texlive/{
 
 
 def notice(repository, release, texlive, parent_manifest):
-    """NOTICE.md: the licences of the release's parts, and where their source is."""
+    """NOTICE.html: the licences of the release's parts, and where their source is."""
     year = texlive["year"]
-    engine_origin = "this release" if parent_manifest is None else \
-        f"the release {parent_manifest['release']} of {parent_manifest['repository']}"
-    return f"""# Licences and source
+    archive = escape(HISTORIC_ARCHIVE.format(year=year))
+    if parent_manifest is None:
+        engine_origin = "this release"
+    else:
+        engine_origin = f"the release {escape(parent_manifest['release'])} of {escape(parent_manifest['repository'])}"
+    return f"""<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Licences and source</title>
+<style>
+  :root {{ color-scheme: light dark; }}
+  body {{ font-family: system-ui, sans-serif; line-height: 1.5; max-width: 50rem; margin: 2rem auto; padding: 0 1rem; }}
+  code {{ font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; overflow-wrap: anywhere; }}
+</style>
 
-This is the release {release} of {repository}. It has these parts:
+<h1>Licences and source</h1>
 
-- **The engine** (`busytex/`, from {engine_origin}): pdfTeX, compiled to
-  WebAssembly. It is under GPL-3.0-or-later. `busytex/NOTICE.md` lists its
-  parts, their licences and their source.
-- **The library** (`js/`, from {engine_origin}): lazytex's code, under the
-  MIT licence (`js/LICENSE.md`).
-- **The TeX files** (the bundles, `archives/` and the generated files in
-  `index/generated/`): files of TeX Live {year} (revision {texlive["revision"]}).
-  lazytex does not change them: an archive or a bundle holds files of a
-  package with the same bytes as TeX Live's own archives, and the generated
-  files come from these files. An archive holds all runfiles of its
-  package, and a bundle only the files that its documents read.
-  Each file is under the licence of its TeX Live package. The
-  `catalogue-license` of the package in TeX Live's `texlive.tlpdb` gives
-  that licence, and the package's page on CTAN (https://ctan.org/pkg/<name>)
-  gives more. TeX Live's historic archive of TeX Live {year} has the source
-  and the documentation (with the licence text) of each package:
+<p>This is the release {escape(release)} of {escape(repository)}. It has these parts:</p>
 
-  {HISTORIC_ARCHIVE.format(year=year)}<name>.source.tar.xz
-  {HISTORIC_ARCHIVE.format(year=year)}<name>.doc.tar.xz
-
-  https://tug.org/historic/ lists other copies of this archive.
-- **The index files and the manifest** (`index/*.json`, `manifest.json`):
-  made by lazytex's tools from TeX Live's package database.
+<ul>
+  <li><p><strong>The engine</strong> (<code>busytex/</code>, from {engine_origin}): pdfTeX, compiled to WebAssembly.
+    It is under GPL-3.0-or-later. <a href="busytex/NOTICE.html">busytex/NOTICE.html</a> lists its parts, their
+    licences and their source.</p></li>
+  <li><p><strong>The library</strong> (<code>js/</code>, from {engine_origin}): lazytex's code, under the MIT licence
+    (<a href="js/LICENSE.txt">js/LICENSE.txt</a>).</p></li>
+  <li><p><strong>The TeX files</strong> (the bundles, <code>archives/</code> and the generated files in
+    <code>index/generated/</code>): files of TeX Live {year} (revision {texlive["revision"]}). lazytex does not
+    change them: an archive or a bundle holds files of a package with the same bytes as TeX Live's own archives,
+    and the generated files come from these files. An archive holds all runfiles of its package, and a bundle
+    only the files that its documents read.</p>
+    <p>Each file is under the licence of its TeX Live package. The <code>catalogue-license</code> of the package
+    in TeX Live's <code>texlive.tlpdb</code> gives that licence, and the package's page on CTAN
+    (<code>https://ctan.org/pkg/&lt;name&gt;</code>) gives more. <a href="{archive}">TeX Live's historic
+    archive</a> of TeX Live {year} has the source and the documentation (with the licence text) of each
+    package:</p>
+    <ul>
+      <li><code>{archive}&lt;name&gt;.source.tar.xz</code></li>
+      <li><code>{archive}&lt;name&gt;.doc.tar.xz</code></li>
+    </ul>
+    <p><a href="https://tug.org/historic/">https://tug.org/historic/</a> lists other copies of this archive.</p></li>
+  <li><p><strong>The index files and the manifest</strong> (<code>index/*.json</code>, <code>manifest.json</code>):
+    made by lazytex's tools from TeX Live's package database.</p></li>
+</ul>
+</html>
 """
 
 
@@ -128,13 +145,13 @@ def main():
     index_dir, archives_dir, out = Path(args.index), Path(args.archives), Path(args.out)
 
     if args.engine:
-        for name in ("busytex.js", "busytex.wasm", "NOTICE.md"):
+        for name in ("busytex.js", "busytex.wasm", "NOTICE.html"):
             copy(Path(args.engine) / name, out / "busytex" / name)
         shutil.copytree(Path(args.engine) / "licenses", out / "busytex" / "licenses")
     if args.js:
         js_dir = Path(args.js)
         # The library for apps. core.cjs is for Node tools only.
-        for name in ("client.js", "worker.js", "LICENSE.md"):
+        for name in ("client.js", "worker.js", "LICENSE.txt"):
             copy(js_dir / name, out / "js" / name)
         for declaration in sorted((js_dir / "types").glob("*.d.ts")):
             copy(declaration, out / "js" / "types" / declaration.name)
@@ -183,7 +200,7 @@ def main():
         (out / "index" / index_path.name).write_text(json.dumps(index, separators=(",", ":")))
 
     parent_manifest = json.loads((Path(args.parent) / "manifest.json").read_text()) if args.parent else None
-    (out / "NOTICE.md").write_text(notice(args.repository, args.release, texlive, parent_manifest))
+    (out / "NOTICE.html").write_text(notice(args.repository, args.release, texlive, parent_manifest))
 
     manifest = {
         "format": "lazytex-release",

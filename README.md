@@ -115,7 +115,7 @@ real one.
 - **The TeX files** (bundles, archives, the TeX tree of the example site) are
   unchanged files of TeX Live packages, each under its own licence.
 
-Each release has a `NOTICE.md`, and `busytex/NOTICE.md` with the engine's
+Each release has a `NOTICE.html`, and `busytex/NOTICE.html` with the engine's
 licence texts. They tell where the source of each part is.
 
 ## A possible change: current TeX Live

@@ -73,7 +73,7 @@ published. The release workflow is not built.
 4. **Licence compliance.** lazytex's code is MIT. The engine is distributed
    under GPL-3.0-or-later (pdfTeX is GPL-2.0-or-later), so its corresponding
    source can be on another server. Every release and every site that has
-   the engine must have the notices (`NOTICE.md`, `busytex/NOTICE.md`,
+   the engine must have the notices (`NOTICE.html`, `busytex/NOTICE.html`,
    `busytex/licenses/`) and the corresponding source must stay available.
    The TeX files are unchanged TeX Live files under their packages'
    licences. Do not change them. A release archive holds all runfiles of

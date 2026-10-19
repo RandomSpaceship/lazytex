@@ -11,7 +11,7 @@
 #   wasm-objects  TeX Live configured and compiled for wasm: the libraries and
 #                 pdfTeX objects that the link needs (the slow part)
 #   wasm          the link: busytex.js + busytex.wasm + engine.json, and the
-#                 notices: NOTICE.md (from ./NOTICE.md) and licenses/, the
+#                 notices: NOTICE.html (from ./NOTICE.html) and licenses/, the
 #                 licence texts from the sources. A change to the link
 #                 options rebuilds only this step.
 {
@@ -212,7 +212,7 @@ let
     "build/wasm/texlive/libs/xpdf/libxpdf.a"
   ];
 
-  # The notices of the engine: NOTICE.md with the versions of this build, and
+  # The notices of the engine: NOTICE.html with the versions of this build, and
   # the licence texts from the sources that the build used.
   licenses = ''
     mkdir -p $out/licenses texlive-licenses
@@ -232,7 +232,7 @@ let
     cp $emscriptenLib/libcxx/LICENSE.TXT $out/licenses/libcxx.txt
     cp $emscriptenLib/libcxxabi/LICENSE.TXT $out/licenses/libcxxabi.txt
     cp $emscriptenLib/compiler-rt/LICENSE.TXT $out/licenses/compiler-rt.txt
-    substitute ${./NOTICE.md} $out/NOTICE.md \
+    substitute ${./NOTICE.html} $out/NOTICE.html \
       --subst-var-by texliveSource ${sources.texlive.url} \
       --subst-var-by busytex ${busytexSrc.rev or "unknown"} \
       --subst-var-by emscripten ${emscripten.version}

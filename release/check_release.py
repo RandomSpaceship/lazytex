@@ -26,9 +26,9 @@ release; a child runs it on its release with --parent.
 - Each bundle is a plain ustar file, and holds only indexed files (and
   pdflatex.fmt).
 - The library (js/client.js, js/worker.js, js/types/client.d.ts,
-  js/LICENSE.md) and the engine's notices (busytex/NOTICE.md and its licence
+  js/LICENSE.txt) and the engine's notices (busytex/NOTICE.html and its licence
   texts) are in the manifest, in this release or the parent's. The release
-  has its own NOTICE.md.
+  has its own NOTICE.html.
 - With --parent: the manifest names the parent release and the SHA-512 of its
   manifest, the parent files agree with the parent's manifest, no bundle file
   is in two bundles, and each package entry is the parent's entry without
@@ -236,12 +236,12 @@ def main():
                     problem(f"generated/{index['scope']}/{tree}/{relative_path}: missing or wrong size")
 
     # The library and the notices.
-    for relative_path in ("js/client.js", "js/worker.js", "js/types/client.d.ts", "js/LICENSE.md", "busytex/NOTICE.md",
+    for relative_path in ("js/client.js", "js/worker.js", "js/types/client.d.ts", "js/LICENSE.txt", "busytex/NOTICE.html",
                           "busytex/licenses/GPL-3.0.txt", "busytex/licenses/GPL-2.0.txt", "busytex/licenses/LGPL-2.1.txt"):
         if relative_path not in manifest["files"]:
             problem(f"{relative_path} is not in the release or its parent")
-    if "NOTICE.md" not in own_files:
-        problem("NOTICE.md is not in the release")
+    if "NOTICE.html" not in own_files:
+        problem("NOTICE.html is not in the release")
 
     # The bundles.
     dist = chain[0]["trees"]["texmf-dist"].lstrip("/")

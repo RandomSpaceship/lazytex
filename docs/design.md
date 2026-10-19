@@ -222,7 +222,7 @@ people's work, with other licences:
   (for example the example page on GitHub Pages, which has a size limit of
   1 GB) can point to the source and does not have to hold it. The TeX Live
   source alone is 149 MB.
-- **The engine build** writes `NOTICE.md` (the parts, their licences and
+- **The engine build** writes `NOTICE.html` (the parts, their licences and
   the exact source references) and `licenses/` (the licence texts, taken
   from the sources of the build). The release has them in `busytex/`.
 - **The TeX files** are unchanged files of TeX Live packages, each under its
@@ -242,13 +242,13 @@ people's work, with other licences:
     each change of the pin, and solve a difference then.
   - **A bundle** holds only the files that its documents read, so it is a
     part of each package. The LPPL permits this as a derived work (clause
-    6), because no file is changed and the release's `NOTICE.md` tells how
+    6), because no file is changed and the release's `NOTICE.html` tells how
     to get the complete packages.
   - Some packages have conditions that runfiles alone do not meet: the GPL
     packages need their source (often a `.dtx` file), and some MIT, BSD and
     OFL packages have their licence text only in their documentation. TeX
     Live's historic archive keeps the source and documentation containers
-    of each package. The release's `NOTICE.md` points to them, as a TeX
+    of each package. The release's `NOTICE.html` points to them, as a TeX
     Live redistributor usually does. The index records no licence for each
     package.
 - **BusyTeX** says in its README that its code is MIT, but it has no

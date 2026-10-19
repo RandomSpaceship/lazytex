@@ -6,7 +6,7 @@
 #   core.cjs   the synchronous engine, scope table and log parsing, for Node
 #              (tests and build tools)
 #   types/     the TypeScript declarations (client.d.ts for apps)
-#   LICENSE.md lazytex's licence (MIT), which apps ship with the library
+#   LICENSE.txt lazytex's licence (MIT), which apps ship with the library
 {
   runCommand,
   typescript,
@@ -33,5 +33,5 @@ runCommand "lazytex-library"
     esbuild src/worker.ts --bundle --format=iife --target=es2022 --outfile=$out/worker.js
     esbuild src/core.ts --bundle --platform=neutral --format=cjs --target=es2022 --outfile=$out/core.cjs
     tsc -p . --emitDeclarationOnly --outDir $out/types
-    cp ${../LICENSE.md} $out/LICENSE.md
+    cp ${../LICENSE.md} $out/LICENSE.txt
   ''

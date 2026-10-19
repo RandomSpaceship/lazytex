@@ -31,10 +31,10 @@ lazytex's release:
 | Path | Use |
 |---|---|
 | `manifest.json` | Every other file, with its size and SHA-512, and the upstream versions. |
-| `NOTICE.md` | The licences of the release's parts, and where their source is. A child release has its own. |
+| `NOTICE.html` | The licences of the release's parts, and where their source is. A child release has its own. |
 | `busytex/busytex.js`, `busytex/busytex.wasm` | The engine. |
-| `busytex/NOTICE.md`, `busytex/licenses/` | The engine's parts, their licences and their source, and the licence texts. |
-| `js/client.js`, `js/worker.js`, `js/types/`, `js/LICENSE.md` | The library: the API for apps, the engine's worker, the TypeScript declarations, and lazytex's licence (MIT). See [`library/README.md`](../library/README.md). |
+| `busytex/NOTICE.html`, `busytex/licenses/` | The engine's parts, their licences and their source, and the licence texts. |
+| `js/client.js`, `js/worker.js`, `js/types/`, `js/LICENSE.txt` | The library: the API for apps, the engine's worker, the TypeScript declarations, and lazytex's licence (MIT). See [`library/README.md`](../library/README.md). |
 | `bundle.tar` | lazytex's bundle. It includes `pdflatex.fmt`. |
 | `index/index-full.json` | The full scope in one layer: every package that the engine can read. |
 | `index/generated/full/<tree>/<path>` | The generated files of the full scope. |
@@ -62,7 +62,7 @@ these kinds:
 | **TeX Live files, unchanged** | The files in `bundle*.tar` (not `pdflatex.fmt`), in `archives/hosted/` and in `archives/<layer>.tar.xz` | The files come from nixpkgs' TeX Live and have the same bytes as TeX Live's own archives. `make_archives.py` and `make_bundle.py` pack them into new tar files. An archive holds all runfiles of its package. A bundle holds only the files that its documents read. |
 | **Made from TeX Live files** | `index/generated/` (`ls-R`, `pdftex.map`, `language.dat`), `pdflatex.fmt` in `bundle.tar` | `ls-R`: `make_index.py` and `narrow_index.py`. `pdftex.map` and `language.dat`: nixpkgs (updmap and the hyphenation configuration) for each TeX tree. `pdflatex.fmt`: the engine, from LaTeX's `pdflatex.ini` (`trace_bundle.cjs`). |
 | **Compiled from upstream source** | `busytex/busytex.js`, `busytex/busytex.wasm`, `busytex/licenses/` | `engine/default.nix`, from the TeX Live source, BusyTeX and Emscripten. The licence texts are copies from those sources. |
-| **lazytex's code and data** | `js/`, `index/index-*.json`, `manifest.json`, `NOTICE.md`, `busytex/NOTICE.md` | The library build (`library/default.nix`), the index tools, `make_release.py`, and `engine/NOTICE.md`. The index files hold data from TeX Live's package database (`texlive.tlpdb`). |
+| **lazytex's code and data** | `js/`, `index/index-*.json`, `manifest.json`, `NOTICE.html`, `busytex/NOTICE.html` | The library build (`library/default.nix`), the index tools, `make_release.py`, and `engine/NOTICE.html`. The index files hold data from TeX Live's package database (`texlive.tlpdb`). |
 
 The app serves the files of both releases in one directory, at these paths
 (`appSite` in [`nix/lib.nix`](../nix/lib.nix) makes this directory for the
