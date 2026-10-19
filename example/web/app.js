@@ -2,19 +2,26 @@
 // It shows the loop that an app runs around compile() (library/README.md):
 // install the packages of a `needs` result, or change to a larger scope, and
 // compile again.
-import { createTexEngine } from '/js/client.js';
+//
+// The paths are relative to this file, so that the page also works below a
+// path, for example on GitHub Pages.
+import { createTexEngine } from './js/client.js';
 
 // The example app's scopes, smallest first, and its bundles, lazytex's first.
 const MEDIUM = ['index/index-medium.json'];
 const FULL = ['index/index-medium.json', 'index/index-full-extra.json'];
 const BUNDLES = ['bundle.tar', 'bundle-example.tar'];
 
+// site.json is only on the GitHub Pages site (nix build .#example-pages).
+// That site has only the packages of the medium scope.
+const site = await fetch('site.json').then((response) => (response.ok ? response.json() : {}), () => ({}));
+
 const status = document.getElementById('status');
 const say = (text) => { status.textContent = text; };
 
 const tex = createTexEngine({
-  baseUrl: new URL('/', location.href).href,
-  createWorker: () => new Worker('/js/worker.js'),
+  baseUrl: new URL('./', import.meta.url).href,
+  createWorker: () => new Worker(new URL('./js/worker.js', import.meta.url)),
   scope: MEDIUM,
   bundles: BUNDLES,
   onProgress: ({ stage }) => say(`Starting the engine: ${stage}…`),
@@ -33,8 +40,13 @@ async function compile() {
     }
     if (result.status === 'needs' && result.packages.length) {
       const names = result.packages.map(({ name }) => name);
-      // A real app downloads, checks and unpacks each archive here. This
-      // server has every package already.
+      if (site.mediumOnly && tex.scope.length > MEDIUM.length) {
+        log.push(`not on this site: ${names.join(', ')}. It has only the packages of the medium scope.`,
+          'A real app downloads them (example/README.md, "Install packages in a browser").');
+        return say(log.join('\n'));
+      }
+      // A real app downloads, checks and unpacks each archive here
+      // (example/README.md). This site has the packages already.
       log.push(`install: ${names.join(', ')}`);
       await tex.packagesInstalled(names);
       continue;

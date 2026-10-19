@@ -29,6 +29,9 @@ page on <http://127.0.0.1:8050/>. Type a document, and press
 **Compile**. The first build takes some time (the TeX trees come from the
 Nix binary cache, and the engine takes about 4 minutes to compile).
 
+`nix build .#example-pages` makes the same page as a static site for GitHub
+Pages. It has only the packages of the medium scope.
+
 ## What a release has
 
 | Part | What it is | Docs |

@@ -53,6 +53,8 @@ published. The release workflow is not built.
 - `nix run .#release-assemble -- TAG OUT`: the release files for a tag, checked.
 - `nix build .#engine`, `.#library`, `.#index`, `.#bundle`, `.#archives`, `.#loads`: one part.
 - `nix build .#example-release`, `.#example-site`: the example child.
+- `nix build .#example-pages`: the example page and its site, with the medium
+  tree only, for GitHub Pages (`.github/workflows/pages.yml`, started by hand).
 - `nix run .#example`: the example page on <http://127.0.0.1:8050/>.
 - `nix develop`: a shell with the tools.
 
@@ -133,4 +135,6 @@ read. To add files, add a document.
   files other than the package archives are not decided.
 - Measure the `loads` records of all packages, not only the hosted ones
   (about 10 to 30 minutes).
+- The example page does not download packages. `example/README.md` has notes
+  on how a web page can do it.
 - A move to current TeX Live (README, last section): not planned.

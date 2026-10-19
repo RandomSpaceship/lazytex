@@ -1,0 +1,64 @@
+# Publishes the example page (`nix build .#example-pages`) on GitHub Pages.
+#
+# The site has the medium tree only (about 900 MB; the limit of a Pages site
+# is 1 GB). Set the source of the repo's Pages to "GitHub Actions" first.
+name: pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # The same as in check.yml: the TeX trees and the engine build need
+      # several GB of disk.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - uses: actions/checkout@v7
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Restores the outputs that the check workflow keeps (the engine, the
+      # releases), so that this job does not build them again. It does not
+      # save a cache.
+      - uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ github.sha }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          save: false
+
+      - name: Build the site
+        run: nix build .#example-pages --print-build-logs
+
+      # The action makes a tar file with --dereference, so the links of the
+      # Nix output become files.
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: result/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

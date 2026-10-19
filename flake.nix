@@ -75,6 +75,7 @@
       # The example child (example/): the tests run on its site.
       example = import ./example {
         inherit lib lazytex;
+        inherit (pkgs) runCommand;
         parent = release;
       };
       tests = pkgs.callPackage ./tests {
@@ -108,6 +109,7 @@
         texlive-full = texlive.full;
         example-release = example.release;
         example-site = example.appSite;
+        example-pages = example.pages;
         default = release;
       };
 

@@ -220,7 +220,8 @@ people's work, with other licences:
   (MIT) and Emscripten's runtime. lazytex distributes it under
   GPL-3.0-or-later. With GPL-3, the corresponding source can be on another
   server, if the directions to it are clear. Thus a site with the engine
-  can point to the source and does not have to hold it. The TeX Live
+  (for example the example page on GitHub Pages, which has a size limit of
+  1 GB) can point to the source and does not have to hold it. The TeX Live
   source alone is 149 MB.
 - **The engine build** writes `NOTICE.md` (the parts, their licences and
   the exact source references) and `licenses/` (the licence texts, taken
