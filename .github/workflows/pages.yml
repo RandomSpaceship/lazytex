@@ -2,9 +2,17 @@
 #
 # The site has the medium tree only (about 900 MB; the limit of a Pages site
 # is 1 GB). Set the source of the repo's Pages to "GitHub Actions" first.
+#
+# It starts after each successful run of the check workflow for a push to
+# main, and builds the commit of that run. Start it by hand to publish the
+# newest commit of the branch that you select.
 name: pages
 
 on:
+  workflow_run:
+    workflows: [check]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -18,29 +26,28 @@ concurrency:
 
 jobs:
   build:
+    # A pull request from a fork's main branch also matches "branches: [main]",
+    # so the event of the check run must be a push.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      # The same as in check.yml: the TeX trees and the engine build need
-      # several GB of disk.
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          df -h /
-
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: cachix/install-nix-action@v31
         with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       # Restores the outputs that the check workflow keeps (the engine, the
       # releases), so that this job does not build them again. It does not
       # save a cache.
       - uses: nix-community/cache-nix-action@v7
         with:
-          primary-key: nix-${{ runner.os }}-${{ github.sha }}
+          primary-key: nix-${{ runner.os }}-${{ github.event.workflow_run.head_sha || github.sha }}
           restore-prefixes-first-match: nix-${{ runner.os }}-
           save: false
 

@@ -17,19 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      # The runner has about 14 GB of free disk. The TeX trees and the engine
-      # build need several GB, so remove large tools that this job does not use.
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          df -h /
-
       - uses: actions/checkout@v7
 
       - uses: cachix/install-nix-action@v31
         with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       # Restores the Nix store of the last run (the newest cache with this
       # prefix), and saves the store at the end of the job. Before the save,
@@ -38,9 +30,7 @@ jobs:
       # all other paths: the TeX trees and the toolchains (about 11 GB
       # together). The next run downloads those from cache.nixos.org again,
       # which is as fast as a restore from this cache. The whole store would
-      # not fit: the cache of a repo is limited to 10 GB, and the runner does
-      # not have the disk for the store and its compressed copy at the same
-      # time.
+      # not fit: the cache of a repo is limited to 10 GB.
       - uses: nix-community/cache-nix-action@v7
         with:
           primary-key: nix-${{ runner.os }}-${{ github.sha }}

@@ -54,7 +54,8 @@ published. The release workflow is not built.
 - `nix build .#engine`, `.#library`, `.#index`, `.#bundle`, `.#archives`, `.#loads`: one part.
 - `nix build .#example-release`, `.#example-site`: the example child.
 - `nix build .#example-pages`: the example page and its site, with the medium
-  tree only, for GitHub Pages (`.github/workflows/pages.yml`, started by hand).
+  tree only, for GitHub Pages (`.github/workflows/pages.yml`, which starts
+  after each successful check of a push to `main`).
 - `nix run .#example`: the example page on <http://127.0.0.1:8050/>.
 - `nix develop`: a shell with the tools.
 
