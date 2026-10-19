@@ -16,10 +16,12 @@ release; a child runs it on its release with --parent.
 - Each releaseArchive URL names this release's tag and an archive of this
   release by its file name (or the parent release, for an entry that the
   child copied), and agrees with the manifest. Each release archive holds
-  exactly the indexed files of its package, at safe paths. No two archives
-  have the same file name (their asset names).
-- Each offline archive (archives/<layer>.tar.xz) holds exactly the files of
-  its layer.
+  the indexed files of its package with their indexed sizes, and only
+  regular files at safe paths. It can hold other files: the runfiles that
+  the index does not list. No two archives have the same file name (their
+  asset names).
+- Each offline archive (archives/<layer>.tar.xz) holds the files of its
+  layer.
 - Each generated file is in the release, with the indexed size.
 - Each bundle is a plain ustar file, and holds only indexed files (and
   pdflatex.fmt).
@@ -88,6 +90,12 @@ def archive_listing(path):
         problem(f"{path.name}: cannot read the archive ({error.__class__.__name__})")
         return None
     return listing
+
+
+def holds_files(listing, files):
+    """Whether an archive listing has each file with its size. An archive also
+    has the runfiles that the index does not list."""
+    return listing is not None and all(listing.get(path) == size for path, size in files.items())
 
 
 def bundle_members(path):
@@ -205,8 +213,8 @@ def main():
             if own_files[relative_path] != {"bytes": archive["bytes"], "sha512": archive["sha512"]}:
                 problem(f"{name}: releaseArchive differs from the manifest")
                 continue
-            if archive_listing(release / relative_path) != file_sizes(package):
-                problem(f"{name}: the release archive does not hold exactly the indexed files")
+            if not holds_files(archive_listing(release / relative_path), file_sizes(package)):
+                problem(f"{name}: the release archive does not hold the indexed files")
     layers = {index["scope"]: index for index in chain}
     for relative_path in own_files:
         match = re.fullmatch(r"archives/([^/]+)\.tar\.xz", relative_path)
@@ -216,8 +224,8 @@ def main():
             problem(f"{relative_path}: no layer has the name {match[1]}")
             continue
         layer_files = {path: size for package in layers[match[1]]["packages"].values() for path, size in file_sizes(package).items()}
-        if archive_listing(release / relative_path) != layer_files:
-            problem(f"{relative_path} does not hold exactly the files of the layer {match[1]}")
+        if not holds_files(archive_listing(release / relative_path), layer_files):
+            problem(f"{relative_path} does not hold the files of the layer {match[1]}")
 
     # Generated files.
     for index in chain:

@@ -59,7 +59,7 @@ these kinds:
 
 | Kind | Files | Made by |
 |---|---|---|
-| **TeX Live files, unchanged** | The files in `bundle*.tar` (not `pdflatex.fmt`), in `archives/hosted/` and in `archives/<layer>.tar.xz` | The files come from nixpkgs' TeX Live and have the same bytes as TeX Live's own archives. `make_archives.py` and `make_bundle.py` pack them into new tar files. An archive holds only the files that pdfTeX can read (`tex/`, `fonts/`, `web2c/`), not for example the makeindex, dvips or ConTeXt files of a package. A bundle holds only the files that its documents read. |
+| **TeX Live files, unchanged** | The files in `bundle*.tar` (not `pdflatex.fmt`), in `archives/hosted/` and in `archives/<layer>.tar.xz` | The files come from nixpkgs' TeX Live and have the same bytes as TeX Live's own archives. `make_archives.py` and `make_bundle.py` pack them into new tar files. An archive holds all runfiles of its package. A bundle holds only the files that its documents read. |
 | **Made from TeX Live files** | `index/generated/` (`ls-R`, `pdftex.map`, `language.dat`), `pdflatex.fmt` in `bundle.tar` | `ls-R`: `make_index.py` and `narrow_index.py`. `pdftex.map` and `language.dat`: nixpkgs (updmap and the hyphenation configuration) for each TeX tree. `pdflatex.fmt`: the engine, from LaTeX's `pdflatex.ini` (`trace_bundle.cjs`). |
 | **Compiled from upstream source** | `busytex/busytex.js`, `busytex/busytex.wasm`, `busytex/licenses/` | `engine/default.nix`, from the TeX Live source, BusyTeX and Emscripten. The licence texts are copies from those sources. |
 | **lazytex's code and data** | `js/`, `index/index-*.json`, `manifest.json`, `NOTICE.md`, `busytex/NOTICE.md` | The library build (`library/default.nix`), the index tools, `make_release.py`, and `engine/NOTICE.md`. The index files hold data from TeX Live's package database (`texlive.tlpdb`). |
@@ -231,13 +231,20 @@ that the app needs:
 Each archive is a `tar` file, compressed with `xz`. Each entry is a file at
 its path relative to `texmf-dist`, for example
 `tex/latex/pgfplots/pgfplots.sty`. TeX Live's own archives use the same
-paths, and they also have a `tlpkg/` folder.
+paths (a package that TeX Live does not relocate, for example `kpathsea`,
+has them below `texmf-dist/`), and they also have a `tlpkg/` folder.
 
-- A release archive has exactly the files of the package in the index. It is a
-  repack of the unpacked package from the Nix binary cache, so it is not
-  byte-identical to TeX Live's archive. Verify it with `releaseArchive.sha512`.
-- A TeX Live archive can have more files than the index lists, for example
-  files for other engines. Verify it with the package's `sha512`.
+- A release archive has all runfiles of the package (its `runfiles` in
+  `texlive.tlpdb`): the files that the index lists, and the files for other
+  programs, for example makeindex styles. It is a repack of the unpacked
+  package from the Nix binary cache, so it is not byte-identical to TeX
+  Live's archive, but its files are. Verify it with
+  `releaseArchive.sha512`.
+- A TeX Live archive has the same runfiles and a `tlpkg/` folder. Verify it
+  with the package's `sha512`.
+
+In both cases the app writes only the files that the index lists (see
+"Safety rules for unpacking").
 
 ## Bundles
 
@@ -328,7 +335,9 @@ untrusted, also after the hash check:
    `\` or a drive letter.
 4. Write only the entries that the package's `files` lists, and check each
    size against the index (the entry, or its `bytes`). Ignore all other
-   entries (for example `tlpkg/`).
+   entries (for example `tlpkg/`, and runfiles for other programs). In a TeX
+   Live archive of a package that TeX Live does not relocate, the entries
+   are below `texmf-dist/`: compare their paths without this prefix.
 5. Write each file into the cache's `texmf-dist/` folder, at the path from
    `files`, never at a path from the archive.
 

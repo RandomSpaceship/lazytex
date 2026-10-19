@@ -129,7 +129,6 @@ An app gets each file from one of three places:
   Volunteer mirrors vary.
 - **Less traffic for the volunteer-run mirrors:** GitHub carries the common
   traffic.
-- **Smaller archives:** a repack has only the files that pdfTeX can read.
 - **Consistent results:** the common packages are the same on all devices.
 
 The archives are repacks of nixpkgs' unpacked packages from the Nix binary
@@ -227,15 +226,31 @@ people's work, with other licences:
   the exact source references) and `licenses/` (the licence texts, taken
   from the sources of the build). The release has them in `busytex/`.
 - **The TeX files** are unchanged files of TeX Live packages, each under its
-  own licence. Most packages are LPPL, which permits the distribution of
-  the installed files of a package (TeX Live's own archives also have only
-  these files). Some packages have conditions that runfiles alone do not
-  meet: the GPL packages need their source (often a `.dtx` file), and some
-  MIT, BSD and OFL packages have their licence text only in their
-  documentation. TeX Live's historic archive keeps the source and
-  documentation containers of each package. The release's `NOTICE.md`
-  points to them, as a TeX Live redistributor usually does. The index
-  records no licence for each package.
+  own licence. Most packages are LPPL. The LPPL permits a "Compiled Work"
+  (clause 3): the installed files of a package, if a recipient can install
+  them exactly as the package installs them. A part of a package is a
+  modification (clause 2). Thus:
+  - **A release archive** holds all runfiles of its package (the
+    `runfiles` of `texlive.tlpdb`), also the files that pdfTeX does not
+    read. It is a repack of nixpkgs' tree, not TeX Live's own archive. On
+    2026-10-19, `tools/check_mirror_download.py --tree --all-hosted`
+    found each runfile of the 86 hosted packages with the same bytes as in
+    TeX Live's archives. The repack keeps the builds away from the
+    volunteer mirrors. Its SHA-512 differs from TeX Live's, and the index
+    has a hash for it (`releaseArchive`). If a later nixpkgs pin changes a
+    file, the archives are no longer unchanged copies: run the check after
+    each change of the pin, and solve a difference then.
+  - **A bundle** holds only the files that its documents read, so it is a
+    part of each package. The LPPL permits this as a derived work (clause
+    6), because no file is changed and the release's `NOTICE.md` tells how
+    to get the complete packages.
+  - Some packages have conditions that runfiles alone do not meet: the GPL
+    packages need their source (often a `.dtx` file), and some MIT, BSD and
+    OFL packages have their licence text only in their documentation. TeX
+    Live's historic archive keeps the source and documentation containers
+    of each package. The release's `NOTICE.md` points to them, as a TeX
+    Live redistributor usually does. The index records no licence for each
+    package.
 - **BusyTeX** says in its README that its code is MIT, but it has no
   licence file, and its releases have no source or notices.
 

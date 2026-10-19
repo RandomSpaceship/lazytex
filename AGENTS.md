@@ -76,7 +76,10 @@ published. The release workflow is not built.
    the engine must have the notices (`NOTICE.md`, `busytex/NOTICE.md`,
    `busytex/licenses/`) and the corresponding source must stay available.
    The TeX files are unchanged TeX Live files under their packages'
-   licences. Do not change them.
+   licences. Do not change them. A release archive holds all runfiles of
+   its package (an LPPL compiled work). After each change of the nixpkgs
+   pin, run `tools/check_mirror_download.py --tree --all-hosted` (its
+   docstring has the command): the files must stay TeX Live's bytes.
 5. **Measure, do not guess.** Record each number with the conditions of its
    measurement (in quartz-resources' findings).
 6. **Android is a target, WebKit is best effort.** Watch memory, download

@@ -88,8 +88,9 @@ This is the release {release} of {repository}. It has these parts:
   `index/generated/`): files of TeX Live {year} (revision {texlive["revision"]}).
   lazytex does not change them: an archive or a bundle holds files of a
   package with the same bytes as TeX Live's own archives, and the generated
-  files come from these files. An archive holds only the files that pdfTeX
-  can read, and a bundle only the files that its documents read. Each file is under the licence of its TeX Live package. The
+  files come from these files. An archive holds all runfiles of its
+  package, and a bundle only the files that its documents read.
+  Each file is under the licence of its TeX Live package. The
   `catalogue-license` of the package in TeX Live's `texlive.tlpdb` gives
   that licence, and the package's page on CTAN (https://ctan.org/pkg/<name>)
   gives more. TeX Live's historic archive of TeX Live {year} has the source

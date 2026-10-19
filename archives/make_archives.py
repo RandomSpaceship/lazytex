@@ -8,24 +8,30 @@
                 already has a releaseArchive is left out: a parent release
                 (lazytex's) hosts it.
   <layer>.tar.xz
-                with --offline LAYER: all files of the packages of
+                with --offline LAYER: all runfiles of the packages of
                 index-<layer>.json, in one archive, for offline use
   archives.json each archive with its SHA-512, size and file count. The
                 release step (release/make_release.py) copies these values
                 into the index (releaseArchive) and into the release
                 manifest. This file is not part of the release.
 
-Each archive holds the package's files as the index lists them, at their
-paths relative to texmf-dist (for example "tex/latex/pgfplots/..."), as in
-TeX Live's own archives, so one unpack step serves both. The index lists
-only the files that pdfTeX can read (the tex, fonts and web2c folders,
-without the folders of other engines), so an archive has no documentation,
-source or tlpkg/ files. It has all of these files of the package, not only
-the files that the bundle documents read. The archives are repacks of
-nixpkgs' unpacked packages, so they are not byte-identical to TeX Live's
-archives. Their own SHA-512 values (in the index and the release
-manifest) verify them. The output is reproducible: sorted entries, fixed time
-stamps and owners, and xz with a fixed block size.
+Each archive holds all runfiles of its package (its "runfiles" in
+texlive.tlpdb), at their paths relative to texmf-dist (for example
+"tex/latex/pgfplots/..."), as in TeX Live's own archives, so one unpack step
+serves both. The index lists only the files that pdfTeX can read, so an
+archive also has files that the index does not list (for example the
+makeindex, dvips or ConTeXt files of a package), and an app writes only the
+indexed files. An archive has no documentation, source or tlpkg/ files, as
+TeX Live's runfile archives. With all runfiles, an archive is a complete,
+unchanged copy of the package's installed files: a compiled work in the
+terms of the LPPL (docs/design.md, "Licences").
+
+The archives are repacks of nixpkgs' unpacked packages, so they are not
+byte-identical to TeX Live's archives. The files in them have the same bytes
+as TeX Live's (tools/check_mirror_download.py compares them). Their own
+SHA-512 values (in the index and the release manifest) verify the archives.
+The output is reproducible: sorted entries, fixed time stamps and owners,
+and xz with a fixed block size.
 
   python3 make_archives.py --index INDEX_DIR --scope index-full.json --tlpdb TLPDB \
       --hosted HOSTED.json [--bundle-stats STATS ...] [--offline LAYER ...] --tree FULL_TREE --out OUT
@@ -76,11 +82,28 @@ def write_archive(path, relative_paths, tree):
             "fileBytes": sum((tree / relative_path).stat().st_size for relative_path in relative_paths)}
 
 
+def runfiles_of(name, packages, indexed_paths, tree):
+    """All runfiles of a package, relative to texmf-dist. Each indexed file is
+    one of them, and the tree has each of them."""
+    runfiles = []
+    for path in packages[name]["runfiles"]:
+        if not path.startswith("texmf-dist/"):
+            raise SystemExit(f"{name}: the runfile {path} is not in texmf-dist")
+        runfiles.append(path[len("texmf-dist/"):])
+    not_runfiles = sorted(set(indexed_paths) - set(runfiles))
+    if not_runfiles:
+        raise SystemExit(f"{name}: indexed files that are not runfiles in texlive.tlpdb: {not_runfiles[:5]}")
+    missing = sorted(path for path in runfiles if not (tree / path).is_file())
+    if missing:
+        raise SystemExit(f"{name}: runfiles that the tree does not have: {missing[:5]}")
+    return runfiles
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--index", required=True, help="the directory of the index files")
     parser.add_argument("--scope", required=True, help="the index files of the scope in INDEX_DIR, separated by commas")
-    parser.add_argument("--tlpdb", required=True, help="texlive.tlpdb.xz, for the dependencies")
+    parser.add_argument("--tlpdb", required=True, help="texlive.tlpdb.xz, for the dependencies and the runfiles")
     parser.add_argument("--hosted", required=True, help="a JSON list of package names to host")
     parser.add_argument("--bundle-stats", action="append", default=[], help="stats.json of a bundle: host its packages")
     parser.add_argument("--offline", action="append", default=[], help="a layer to pack as one archive for offline use")
@@ -114,14 +137,16 @@ def main():
         for name, package in entries.items():
             if (name in listed or name in bundle_packages) and "releaseArchive" not in package:
                 file_name = f"hosted/{name}.r{package['revision']}.tar.xz"
-                archives["hosted"][name] = dict(write_archive(out / file_name, list(package["files"]), tree),
+                runfiles = runfiles_of(name, packages, package["files"], tree)
+                archives["hosted"][name] = dict(write_archive(out / file_name, runfiles, tree),
                                                 file=file_name, scope=scope, listed=name in listed,
                                                 inBundle=name in bundle_packages)
 
     for layer in args.offline:
         if layer not in scope_packages:
             raise SystemExit(f"--offline {layer}: no index file of the scope has that layer")
-        paths = [relative_path for package in scope_packages[layer].values() for relative_path in package["files"]]
+        paths = [relative_path for name, package in scope_packages[layer].items()
+                 for relative_path in runfiles_of(name, packages, package["files"], tree)]
         archives["offline"][layer] = dict(write_archive(out / f"{layer}.tar.xz", paths, tree),
                                           file=f"{layer}.tar.xz", packages=len(scope_packages[layer]))
     (out / "archives.json").write_text(json.dumps(archives, indent=2))
