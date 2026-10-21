@@ -1,3 +1,8 @@
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["jsonschema"]
+# ///
+
 """Check the files of a release (lazytex's or a child's): the formats, and that
 the files agree with each other. lazytex's flake check runs it on its own
 release; a child runs it on its release with --parent.
@@ -36,6 +41,11 @@ release; a child runs it on its release with --parent.
   adds (for packages that the parent does not host or measure).
 
   python3 check_release.py --release RELEASE --schemas DOCS [--parent PARENT_RELEASE]
+
+The script needs the jsonschema package. uv installs it from the block at
+the top of this file:
+
+  uv run check_release.py --release RELEASE --schemas DOCS [--parent PARENT_RELEASE]
 """
 
 import argparse
