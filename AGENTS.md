@@ -113,7 +113,7 @@ the code does not show:
   `flake.nix`: `tests/documents/` (test cases), `example/documents/` (the
   example's bundle documents) and `bundle/documents/` (lazytex's bundle
   documents).
-- Each tool in `index/`, `bundle/`, `archives/` and `release/` has its
+- Each tool in `index/`, `bundle/`, `archives/`, `release/` and `tools/` has its
   command in its docstring, so that it runs without Nix too.
 
 ## Bundles: how their files are chosen
