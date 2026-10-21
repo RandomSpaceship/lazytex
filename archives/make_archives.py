@@ -149,6 +149,8 @@ def main():
                  for relative_path in runfiles_of(name, packages, package["files"], tree)]
         archives["offline"][layer] = dict(write_archive(out / f"{layer}.tar.xz", paths, tree),
                                           file=f"{layer}.tar.xz", packages=len(scope_packages[layer]))
+    # A child can have no archives of its own.
+    out.mkdir(parents=True, exist_ok=True)
     (out / "archives.json").write_text(json.dumps(archives, indent=2))
 
 
