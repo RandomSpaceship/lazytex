@@ -1,5 +1,4 @@
 {
   "_comment": "The documents that define lazytex's bundle: the bundle holds every package file that these documents read in the full scope, and pdflatex.fmt. Add a document here to add the files that it reads. The documents are in documents/. Keep them general: an app's own documents go into the app's bundle (docs/child-repos.md).",
-  "documents": ["article", "standalone"],
-  "formats": []
+  "documents": ["article", "standalone"]
 }

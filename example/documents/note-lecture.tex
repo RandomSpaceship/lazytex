@@ -1,0 +1,25 @@
+% A bogus quartz note: a lecture note with its own preamble lines (geometry,
+% amsmath, macros). For the format tests and tools/measure_formats.cjs.
+\documentclass{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{amsmath}
+\newcommand{\R}{\mathbf{R}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\title{Linear algebra, lecture 4}
+\author{A. Student}
+\date{22 October 2026}
+\begin{document}
+\maketitle
+\section{Norms}
+A norm on $\R^n$ is a function $\norm{\cdot}$ with these properties.
+% enumerate, not itemize: the itemize bullet can need cm-super.
+\begin{enumerate}
+  \item $\norm{x} \ge 0$, and $\norm{x} = 0$ only if $x = 0$.
+  \item $\norm{\lambda x} = |\lambda| \norm{x}$.
+  \item $\norm{x + y} \le \norm{x} + \norm{y}$.
+\end{enumerate}
+\begin{align}
+  \norm{x}_2 &= \sqrt{\sum_{i=1}^{n} x_i^2} \\
+  \norm{x}_\infty &= \max_i |x_i|
+\end{align}
+\end{document}

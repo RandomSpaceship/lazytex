@@ -5,7 +5,8 @@
 #
 #   index     index-medium.json and index-full-extra.json, narrowed from the
 #             full index of lazytex's release
-#   trace     the files that the app's documents and formats read
+#   trace     the files that the app's documents read, also with a format of
+#             their own preamble
 #   bundle    bundle.tar of the app: those files, without the files of
 #             lazytex's bundle
 #   archives  the packages of the app's bundle that lazytex does not host

@@ -105,17 +105,19 @@ your documents ──▶ traceBundle ──▶ packBundle (without lazytex's fil
 }
 ```
 
-`bundle-documents.json` names the documents (in `documents/`) and the format
-builds to trace:
+`bundle-documents.json` names the documents (in `documents/`):
 
 ```json
 {
-  "documents": ["my-diagram", "my-plot"],
-  "formats": [
-    { "name": "tikz-package", "contents": "format-contents.json", "kind": "package" }
-  ]
+  "documents": ["my-diagram", "my-plot"]
 }
 ```
+
+The trace compiles each document, builds a format of its own preamble
+(`buildFormat()` with `mylatexformat`), and compiles the document with that
+format. Thus the bundle has the files that the app needs to build formats
+on the device. Put the app's default preamble (for example, of its TikZ
+code blocks) in a document here.
 
 ## What each function does
 
@@ -124,7 +126,7 @@ builds to trace:
 | `texlive.treeOf { scheme, addCollections }` | nixpkgs' `texlive.withPackages` | A TeX tree of the collections of a scheme, without the ConTeXt, LuaTeX and XeTeX collections, plus the added ones. |
 | `narrowIndex { full, layers, rest }` | `index/narrow_index.py` | `index-<layer>.json` for each layer and for the rest, with their generated files. Each package entry is lazytex's entry without change. |
 | `site { index, tree }` | | The directory that the Node tools read: the engine, the index and a tree. |
-| `traceBundle { site, scope, definition, documents }` | `bundle/trace_bundle.cjs` | The files that each document and format build reads, with all packages of the scope visible. |
+| `traceBundle { site, scope, definition, documents }` | `bundle/trace_bundle.cjs` | The files that each document reads, also with a format of its own preamble, with all packages of the scope visible. |
 | `packBundle { site, scope, trace, excludeBundles, withFormat }` | `bundle/make_bundle.py` | `bundle.tar` and `stats.json`. A child gives lazytex's `bundle.tar` in `excludeBundles` and `withFormat = false`. |
 | `makeArchives { index, scope, hosted, bundles, offline }` | `archives/make_archives.py` | The archives of the hosted packages and their dependencies, and of the bundles' packages, without the packages that lazytex hosts. |
 | `measureLoads { site, scope, packages }` | `index/measure_loads.cjs` | The `loads` records of the packages of `archives.json` that have none. |

@@ -96,10 +96,24 @@ the main thread (an async API) and a worker that holds the engine.
   not sure, it changes nothing, so two documents that TeX reads differently
   never get one key.
 - **Formats:** an app can build a format of a preamble on the device and load
-  it later. A shared TikZ format halves a plain TikZ compile. A format of a
-  document's own preamble helps most for heavy preambles. `formatKey()` gives
-  a cache key from the engine, the bundles, the index files and the
-  normalized source.
+  it later. `formatKey()` gives a cache key from the engine, the bundles,
+  the index files and the normalized source. A format holds the preamble of
+  one document. Only documents with the same preamble use it, so it cannot
+  change a document. It helps most for heavy preambles. An app builds it
+  after the first compile of a preamble shows its result, or builds the
+  format of its default preamble ahead of time.
+
+  lazytex had two other kinds, which it removed:
+  - TikZ and packages loaded before the class, for documents of any class
+    and preamble. It helped only documents with a preamble of their own, it
+    needed a screen of all documents, and an option clash (for example
+    `\usepackage[dvipsnames]{xcolor}` after TikZ) can stop a compile.
+  - A shared format: a preamble of the app, for all documents of its class
+    (in preamble form, with `\endofdump`). Each document got all of its
+    entries, and typical notes then changed or stopped. It saved only the
+    format build at the first compile of a preamble: about 0.25 to 0.4 s on
+    a desktop (quartz-resources'
+    [findings](https://github.com/RandomSpaceship/quartz-resources/blob/main/docs/findings/format-cost-measurement.md)).
 - On a desktop, the worker is ready about 87 ms after its start, and a warm
   compile takes 1.1 to 1.3 times as long as native pdfTeX.
 

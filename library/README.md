@@ -107,6 +107,26 @@ The module also exports `normalizeSource(source)`, a synchronous function
 (see "The source normalizer"), for the app's own cache keys (for example of
 SVGs made from the PDF).
 
+### Formats
+
+`buildFormat()` with `mylatexformat` makes a format of a document's own
+preamble. Compile the document with it without changes. Only documents with
+the same preamble use the format, so it cannot change a document. The format
+skips the preamble up to `\begin{document}`, line by line: a document with
+`\documentclass` and `\begin{document}` on one line fails ("Two
+\documentclass commands").
+
+Build a format after the first compile of a new preamble shows its result,
+and keep it under its `formatKey()`. Then the first result does not wait
+for the build. The build takes about 0.2 to 0.9 s on a desktop. One
+operation runs at a time, so a compile during the build waits for it. An
+app can also build the
+format of its default preamble (for example, the preamble of its TikZ code
+blocks) ahead of time. Each format is 3.6 to 8 MB, so limit the number of
+formats in the app's cache. quartz-resources'
+[findings](https://github.com/RandomSpaceship/quartz-resources/blob/main/docs/findings/format-cost-measurement.md)
+have the measurements.
+
 One operation runs at a time, also `start()`. The others wait in order.
 Only `stop()` acts at once, also during a compile.
 

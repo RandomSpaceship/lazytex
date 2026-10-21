@@ -1,0 +1,28 @@
+% A bogus quartz note: a physics note with its own preamble lines (bm,
+% booktabs, a theorem). For the format tests and tools/measure_formats.cjs.
+% A shared format with amsthm changed its theorem (quartz-resources'
+% docs/findings/format-cost-measurement.md).
+\documentclass{article}
+\usepackage{bm}
+\usepackage{booktabs}
+\newcommand{\vect}[1]{\bm{#1}}
+\newtheorem{law}{Law}
+\begin{document}
+\section*{Kinematics}
+\begin{law}
+  A body stays at rest or in uniform motion if no net force acts on it.
+\end{law}
+The force is $\vect{F} = m \vect{a}$, and the work is
+\[ W = \int_{t_0}^{t_1} \vect{F} \cdot \vect{v} \, dt. \]
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lrr}
+    \toprule
+    Quantity & Value & Unit \\
+    \midrule
+    Mass & 2.0 & kg \\
+    Speed & 3.5 & m/s \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+\end{document}

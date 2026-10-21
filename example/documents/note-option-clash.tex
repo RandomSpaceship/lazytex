@@ -1,0 +1,9 @@
+% A bogus quartz note: it loads amsmath with an option. For the format tests
+% and tools/measure_formats.cjs. A shared format with amsmath stopped it with
+% "Option clash for package amsmath" (quartz-resources'
+% docs/findings/format-cost-measurement.md).
+\documentclass{article}
+\usepackage[intlimits]{amsmath}
+\begin{document}
+\[ \int_0^1 x^2 \, dx = \frac{1}{3} \]
+\end{document}

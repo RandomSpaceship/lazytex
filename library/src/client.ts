@@ -22,7 +22,6 @@ import type { FindScopeResult, InitResult, Progress, ScanResult, Scope, WorkerCo
 
 export type { FindScopeResult, NeedReason, Operation, Outcome, PackageNeed, Progress, ScanResult, Scope };
 export type { TexError } from './log';
-export { formatSource, toPreambleForm, type FormatContents } from './formats';
 export { normalizeSource } from './normalize';
 
 export interface TexEngineOptions {

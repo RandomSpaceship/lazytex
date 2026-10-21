@@ -5,7 +5,7 @@
 // The server serves the example app's site (both releases) and the files of
 // every package (the full tree), so an "install" here only tells the client.
 // The Node tests check real installs.
-import { createTexEngine, formatSource } from '/js/client.js';
+import { createTexEngine } from '/js/client.js';
 
 const results = [];
 const check = (what, pass, detail = null) => {
@@ -22,7 +22,8 @@ const brief = (result) => ({
   log: result.log ? result.log.slice(-400) : null,
 });
 
-const MINIMAL = '\\documentclass{standalone}\\usepackage{tikz}\\begin{document}\\tikz\\draw (0,0) -- (1,1);\\end{document}\n';
+// On lines of their own: a format skips the preamble line by line.
+const MINIMAL = '\\documentclass{standalone}\n\\usepackage{tikz}\n\\begin{document}\n\\tikz\\draw (0,0) -- (1,1);\\end{document}\n';
 const TIKZ_CD = '\\documentclass{standalone}\\usepackage{tikz-cd}\\begin{document}\\begin{tikzcd} A \\arrow[r] & B \\end{tikzcd}\\end{document}\n';
 const LOOP = '\\documentclass{article}\\begin{document}\\loop\\iftrue\\repeat\\end{document}\n';
 const MEDIUM = ['index/index-medium.json'];
@@ -51,7 +52,6 @@ window.addEventListener('unhandledrejection', (event) => console.log(`unhandled 
 async function run() {
   console.log('test page started');
   const chessboard = await (await fetch('/test/documents/chessboard.tex')).text();
-  const formatContents = await (await fetch('/test/documents/format-contents.json')).json();
   const progress = [];
   const engine = createTexEngine({
     baseUrl: new URL('/', location.href).href,
@@ -92,15 +92,16 @@ async function run() {
   const broken = await engine.compile(BROKEN);
   check('error: message and line', broken.status === 'error' && /Undefined control sequence/.test(broken.errors[0].message) && broken.errors[0].line === 4, broken.errors);
 
-  const format = await engine.buildFormat('tikz', formatSource(formatContents, 'package'));
+  // A format of MINIMAL's own preamble.
+  const format = await engine.buildFormat('tikz', MINIMAL, { mylatexformat: true });
   check('format: builds', format.status === 'ok' && format.fmt && format.fmt.length > 1e6, brief(format));
   const withFormat = await engine.compile(MINIMAL, { format: 'tikz' });
   check('format: a compile with it gives a PDF', withFormat.status === 'ok' && isPdf(withFormat.pdf), brief(withFormat));
-  const key = await engine.formatKey(formatSource(formatContents, 'package'));
+  const key = await engine.formatKey(MINIMAL, { mylatexformat: true });
   check('format: the cache key is a SHA-512', /^[0-9a-f]{128}$/.test(key), key);
   const lazytexOnly = createTexEngine({ baseUrl: new URL('/', location.href).href, createWorker: () => new Worker('/js/worker.js'), scope: MEDIUM });
-  check('format: the key depends on the bundles', (await lazytexOnly.formatKey(formatSource(formatContents, 'package'))) !== key);
-  const [commentOne, commentTwo] = await Promise.all(['% one\r\n', '% two  \n'].map((comment) => engine.formatKey(comment + formatSource(formatContents, 'package'))));
+  check('format: the key depends on the bundles', (await lazytexOnly.formatKey(MINIMAL, { mylatexformat: true })) !== key);
+  const [commentOne, commentTwo] = await Promise.all(['% one\r\n', '% two  \n'].map((comment) => engine.formatKey(comment + MINIMAL, { mylatexformat: true })));
   check('format: a change to the comments keeps the key', commentOne === commentTwo && commentOne !== key, [commentOne, commentTwo]);
   const [verbOne, verbTwo] = await Promise.all(['\\verb|50%|abc', '\\verb|50%|xyz'].map((source) => engine.formatKey(source)));
   check('format: a change to protected text gives a new key', verbOne !== verbTwo, verbOne);

@@ -1,22 +1,10 @@
 {
-  "_comment": "The example app's bundle: the files that these documents and format builds read in the medium scope, without the files of lazytex's bundle. The documents are in documents/.",
+  "_comment": "The example app's bundle: the files that these documents read in the medium scope, also with a format of their own preamble (mylatexformat), without the files of lazytex's bundle. The documents are in documents/.",
   "documents": [
     "minimal",
-    "probe-tikz",
-    "probe-math",
-    "control-loop"
-  ],
-  "_formatsComment": "Format builds to trace, so that the app can build these formats on the device without package installs. The trace also compiles each document with each format.",
-  "formats": [
-    {
-      "name": "tikz-package",
-      "contents": "format-contents.json",
-      "kind": "package"
-    },
-    {
-      "name": "tikz-preamble",
-      "contents": "format-contents.json",
-      "kind": "preamble"
-    }
+    "control-loop",
+    "note-lecture",
+    "note-physics",
+    "note-option-clash"
   ]
 }
