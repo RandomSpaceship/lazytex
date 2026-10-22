@@ -98,7 +98,7 @@ rec {
       documents,
     }:
     runCommand name { nativeBuildInputs = [ nodejs ]; } ''
-      export HOME=$TMPDIR TEX_JS=${library}/core.cjs
+      export HOME=$TMPDIR TEX_JS=${library.core}/core.cjs
       node ${../bundle/trace_bundle.cjs} ${site} ${commas scope} ${definition} ${documents} $out
     '';
 
@@ -165,7 +165,7 @@ rec {
       packages,
     }:
     runCommand name { nativeBuildInputs = [ nodejs ]; } ''
-      export HOME=$TMPDIR TEX_JS=${library}/core.cjs
+      export HOME=$TMPDIR TEX_JS=${library.core}/core.cjs
       node ${../index/measure_loads.cjs} ${site} ${commas scope} ${packages} $out
     '';
 

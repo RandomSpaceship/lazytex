@@ -34,7 +34,7 @@
         ];
       }
       ''
-        export HOME=$TMPDIR TEX_SITE=${site} TEX_DOCUMENTS=${documents} TEX_JS=${library}/core.cjs \
+        export HOME=$TMPDIR TEX_SITE=${site} TEX_DOCUMENTS=${documents} TEX_JS=${library.core}/core.cjs \
           BUNDLE_DOCUMENTS=${bundleDefinition}
         node --test ${./.}/*.test.cjs
         touch $out
