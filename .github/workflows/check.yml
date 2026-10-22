@@ -12,6 +12,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# cache-nix-action deletes the older caches through the GitHub API, which
+# needs "actions: write".
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   flake-check:
     runs-on: ubuntu-latest
