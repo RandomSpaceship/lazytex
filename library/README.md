@@ -98,7 +98,7 @@ The worker reads TeX files with synchronous `GET` requests (`responseType`
 | `loadFormat(name, bytes)` | Loads a format from the app's cache. |
 | `formatKey(source, { mylatexformat })` | The cache key of a format: a SHA-512 of the engine, the bundles, the index files, the upstream versions and the source after `normalizeSource()`. A new release with a changed package gives a new key. |
 | `packagesInstalled(names)` | Tells the engine about new packages in the package cache. |
-| `findScope(files, candidates)` | The first of the candidate scopes (smallest first) that has all the files, as `{ scope, files }`: `scope` is `null` if no candidate has them all, and `files` has the files that no candidate has. A name also matches its other forms (for example `pgflibraryX.code.tex` for `tikzlibraryX.code.tex`). The worker loads a candidate's index files only when it gets to it. |
+| `findScope(files, candidates)` | The first of the candidate scopes (smallest first) that has all the files, as `{ scope, files }`: `files` is empty. If no candidate has them all, `scope` is `null`, and `files` has the files that no candidate has. A name also matches its other forms (for example `pgflibraryX.code.tex` for `tikzlibraryX.code.tex`). The worker loads a candidate's index files only when it gets to it. |
 | `setScope(scope)` | Changes the scope. The worker keeps the engine file, the bundles and the index files that it has (also the ones that `findScope()` loaded), and makes a new engine. It loads only the index files that it does not have. |
 | `scope` | The current scope. |
 | `stop()` | Stops the worker. The next operation starts a new one. |
@@ -136,7 +136,7 @@ Only `stop()` acts at once, also during a compile.
 
 | Status | Fields |
 |---|---|
-| `ok` | `pdf` (or `fmt` for `buildFormat()`). |
+| `ok` | `pdf` (or `fmt` for `buildFormat()`). On all other statuses, `pdf` (or `fmt`) is `null`. |
 | `needs` | `packages`: the packages to install, as `{ name, reason, files, requiredBy }`. `files`: file names that no loaded index has. `errors`: TeX's errors, as in `error` (empty if the scan found the needs). |
 | `error` | `errors`: `{ message, line, context }`. `line` is the line of the document, or `null`. A file of an installed package that the worker cannot read (for example a `404`, or a size that is not the size in the index) gives an `error` with the message `could not read <path>: <reason>`, also if TeX made a PDF. |
 | `timeout` | `timeoutMs`. The worker was stopped. |

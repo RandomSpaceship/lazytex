@@ -31,7 +31,7 @@ const indexes = new Map<string, Promise<TexIndex>>();
 const fileNames = new Map<string, Set<string>>();
 
 const post = (message: WorkerMessage, transfer: Transferable[] = []) => self.postMessage(message, transfer);
-const report = (progress: Progress) => post({ progress });
+const report = (progress: Progress) => post({ type: 'progress', progress });
 
 function fetchSync(url: string): Uint8Array {
   const request = new XMLHttpRequest();
@@ -252,14 +252,10 @@ const handlers = {
     }
     const output = current.compile(source, { formatName });
     checkCrash(output);
-    const succeeded = output.exitCode === 0 && output.pdf !== null;
-    const outcome = outcomeOf(output, succeeded);
-    return {
-      ...outcome,
-      ...runInfo(output),
-      pdf: outcome.status === 'ok' ? output.pdf : null,
-      packagesRead: output.packagesRead,
-    };
+    const outcome = outcomeOf(output, output.exitCode === 0 && output.pdf !== null);
+    const common = { ...runInfo(output), packagesRead: output.packagesRead };
+    // An 'ok' outcome needs a PDF (outcomeOf).
+    return outcome.status === 'ok' ? { ...outcome, ...common, pdf: output.pdf as Uint8Array } : { ...outcome, ...common, pdf: null };
   },
 
   async buildFormat({ formatName, source, mylatexformat, scan }: { formatName: string; source: string; mylatexformat: boolean; scan: boolean }): Promise<WorkerFormatResult> {
@@ -271,7 +267,7 @@ const handlers = {
     const output = current.buildFormat({ formatName, source, mylatexformat });
     checkCrash(output);
     const outcome = outcomeOf(output, output.exitCode === 0 && output.fmt !== null);
-    return { ...outcome, ...runInfo(output), fmt: outcome.status === 'ok' ? output.fmt : null };
+    return outcome.status === 'ok' ? { ...outcome, ...runInfo(output), fmt: output.fmt as Uint8Array } : { ...outcome, ...runInfo(output), fmt: null };
   },
 
   async loadFormat({ formatName, bytes }: { formatName: string; bytes: Uint8Array }) {
@@ -295,8 +291,8 @@ self.onmessage = async ({ data }: MessageEvent<WorkerRequest>) => {
       const bytes = (result as Record<string, unknown>)[key];
       if (bytes instanceof Uint8Array) transfer.push(bytes.buffer);
     }
-    post({ id, ok: true, result }, transfer);
+    post({ type: 'result', id, result }, transfer);
   } catch (error) {
-    post({ id, ok: false, error: String((error as Error)?.stack ?? error), crashed: error instanceof EngineCrash });
+    post({ type: 'error', id, error: String((error as Error)?.stack ?? error), crashed: error instanceof EngineCrash });
   }
 };

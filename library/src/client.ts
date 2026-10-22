@@ -128,7 +128,7 @@ export class TexEngine {
     return this.enqueue(async () => {
       await this.ensureStarted();
       const result = await this.runWithLimit<WorkerFormatResult>({ command: 'buildFormat', args: { formatName: name, source, mylatexformat, scan } }, timeoutMs);
-      if (result.status === 'ok' && result.fmt) this.formats.set(name, result.fmt.slice());
+      if (result.status === 'ok') this.formats.set(name, result.fmt.slice());
       return result;
     });
   }
@@ -244,14 +244,14 @@ export class TexEngine {
     const worker = this.options.createWorker();
     this.worker = worker;
     worker.onmessage = ({ data }: MessageEvent<WorkerMessage>) => {
-      if ('progress' in data) {
+      if (data.type === 'progress') {
         this.options.onProgress?.(data.progress);
         return;
       }
       const waiting = this.pending.get(data.id);
       if (!waiting) return;
       this.pending.delete(data.id);
-      if (data.ok) waiting.resolve(data.result);
+      if (data.type === 'result') waiting.resolve(data.result);
       else waiting.reject(data.crashed ? new WorkerStopped('crashed', data.error) : new Error(data.error));
     };
     worker.onerror = (event) => {

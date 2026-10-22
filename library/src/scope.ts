@@ -185,7 +185,7 @@ export function packagesByFileNameOf(indexes: TexIndex[]): Map<string, string[]>
 // names of one index, so that the worker can keep them.
 export function findScopeIn<T>(fileNames: string[], candidates: Array<{ scope: T; indexes: TexIndex[] }>,
   fileNamesOf: (index: TexIndex) => ReadonlySet<string> = fileNamesOfIndex,
-  alternativesOf: (fileName: string) => string[] = (fileName) => [fileName]): { scope: T | null; files: string[] } {
+  alternativesOf: (fileName: string) => string[] = (fileName) => [fileName]): { scope: T; files: [] } | { scope: null; files: string[] } {
   const foundSomewhere = new Set<string>();
   for (const { scope, indexes } of candidates) {
     const nameSets = indexes.map(fileNamesOf);

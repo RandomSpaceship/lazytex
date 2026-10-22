@@ -43,25 +43,26 @@ export interface RunInfo {
   bytesLoaded: number;
 }
 
-export type WorkerCompileResult = Outcome & RunInfo & {
-  pdf: Uint8Array | null;
+type OkOutcome = Extract<Outcome, { status: 'ok' }>;
+type OtherOutcome = Exclude<Outcome, { status: 'ok' }>;
+
+export type WorkerCompileResult = RunInfo & {
   // The packages that the compile read. On 'ok', the app can find the
   // mirror packages among them (the ones without a releaseArchive).
   packagesRead: string[];
-};
+} & ((OkOutcome & { pdf: Uint8Array }) | (OtherOutcome & { pdf: null }));
 
-export type WorkerFormatResult = Outcome & RunInfo & { fmt: Uint8Array | null };
+export type WorkerFormatResult = RunInfo & ((OkOutcome & { fmt: Uint8Array }) | (OtherOutcome & { fmt: null }));
 
 // The scan of a preamble without a compile: 'ok' or 'needs' (with no
 // errors), and the preamble's loads for display.
 export type ScanResult = Exclude<Outcome, { status: 'error' }> & { operations: Operation[] };
 
-// scope: the first candidate that has all the files, or null. files: the
-// files that no candidate has.
-export interface FindScopeResult {
-  scope: Scope | null;
-  files: string[];
-}
+// scope: the first candidate that has all the files. Else null, and files:
+// the files that no candidate has.
+export type FindScopeResult =
+  | { scope: Scope; files: [] }
+  | { scope: null; files: string[] };
 
 export type WorkerRequest =
   | { id: number; command: 'init'; args: InitArguments }
@@ -74,7 +75,7 @@ export type WorkerRequest =
   | { id: number; command: 'installPackages'; args: { names: string[] } };
 
 export type WorkerMessage =
-  | { id: number; ok: true; result: unknown }
+  | { type: 'result'; id: number; result: unknown }
   // crashed: the engine aborted, and the worker cannot run again.
-  | { id: number; ok: false; error: string; crashed: boolean }
-  | { progress: Progress };
+  | { type: 'error'; id: number; error: string; crashed: boolean }
+  | { type: 'progress'; progress: Progress };
