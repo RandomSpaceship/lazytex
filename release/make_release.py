@@ -104,7 +104,10 @@ def notice(repository, release, texlive, parent_manifest):
     <code>index/generated/</code>): files of TeX Live {year} (revision {texlive["revision"]}). lazytex does not
     change them: an archive or a bundle holds files of a package with the same bytes as TeX Live's own archives,
     and the generated files come from these files. An archive holds all runfiles of its package, and a bundle
-    only the files that its documents read.</p>
+    only the files that its documents read. An archive does not hold the files of TeX Live's installer and
+    <code>tlmgr</code> (in <code>tlpkg/</code> and at the root of TeX Live), which TeX does not read.</p>
+    <p>TeX Live's general licence terms are in <code>LICENSE.TL</code> and <code>LICENSE.CTAN</code>, at the
+    root of the <code>texlive.infra</code> package: <code>{archive}texlive.infra.tar.xz</code>.</p>
     <p>Each file is under the licence of its TeX Live package. The <code>catalogue-license</code> of the package
     in TeX Live's <code>texlive.tlpdb</code> gives that licence, and the package's page on CTAN
     (<code>https://ctan.org/pkg/&lt;name&gt;</code>) gives more. <a href="{archive}">TeX Live's historic

@@ -237,9 +237,13 @@ its path relative to `texmf-dist`, for example
 paths (a package that TeX Live does not relocate, for example `kpathsea`,
 has them below `texmf-dist/`), and they also have a `tlpkg/` folder.
 
-- A release archive has all runfiles of the package (its `runfiles` in
-  `texlive.tlpdb`): the files that the index lists, and the files for other
-  programs, for example makeindex styles. It is a repack of the unpacked
+- A release archive has all runfiles of the package in `texmf-dist` (its
+  `runfiles` in `texlive.tlpdb`): the files that the index lists, and the
+  files for other programs, for example makeindex styles. It has no
+  runfiles of TeX Live's installer and `tlmgr`: the files in `tlpkg/` (for
+  example `tlpkg/tlpostcode/dvipdfmx.pl`) and at the root of TeX Live
+  (`install-tl`, and `LICENSE.TL`, `LICENSE.CTAN` and `release-texlive.txt`
+  of `texlive.infra`). TeX does not read them. It is a repack of the unpacked
   package from the Nix binary cache, so it is not byte-identical to TeX
   Live's archive, but its files are. Verify it with
   `releaseArchive.sha512`.

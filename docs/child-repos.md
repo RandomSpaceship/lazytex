@@ -128,7 +128,7 @@ code blocks) in a document here.
 | `site { index, tree }` | | The directory that the Node tools read: the engine, the index and a tree. |
 | `traceBundle { site, scope, definition, documents }` | `bundle/trace_bundle.cjs` | The files that each document reads, also with a format of its own preamble, with all packages of the scope visible. |
 | `packBundle { site, scope, trace, excludeBundles, withFormat }` | `bundle/make_bundle.py` | `bundle.tar` and `stats.json`. A child gives lazytex's `bundle.tar` in `excludeBundles` and `withFormat = false`. |
-| `makeArchives { index, scope, hosted, bundles, offline }` | `archives/make_archives.py` | The archives of the hosted packages and their dependencies, and of the bundles' packages, without the packages that lazytex hosts. |
+| `makeArchives { index, scope, hosted, bundles, offline }` | `archives/make_archives.py` | The archives of the hosted packages and their dependencies, and of the bundles' packages, without the packages that lazytex hosts. First, it checks the runfiles of each package of the scope. An archive cannot hold the runfiles in `tlpkg/` or at the root of TeX Live. The build stops if an LPPL package has such runfiles (`docs/design.md`, "Licences"). |
 | `measureLoads { site, scope, packages }` | `index/measure_loads.cjs` | The `loads` records of the packages of `archives.json` that have none. |
 | `makeRelease { repository, index, archives, bundles, loads, parent }` | `release/make_release.py` | The release (tag `development`), and `passthru.assemble`, the tool of the release workflow. |
 | `checkRelease { release, parent }` | `release/check_release.py` | A flake check of the release. With `parent`, it also checks each copied entry against lazytex's. |

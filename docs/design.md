@@ -246,7 +246,13 @@ people's work, with other licences:
   modification (clause 2). Thus:
   - **A release archive** holds all runfiles of its package (the
     `runfiles` of `texlive.tlpdb`), also the files that pdfTeX does not
-    read. It is a repack of nixpkgs' tree, not TeX Live's own archive. On
+    read. It has no runfiles in `tlpkg/` or at the root of TeX Live (files
+    of TeX Live's installer and `tlmgr`). None of the 9 packages that have
+    them is LPPL (2026-10-22). `make_archives.py` stops if an LPPL package
+    has them, and it checks the runfiles of all packages of the scope, not
+    only of the packed ones. `NOTICE.html` links `LICENSE.TL` and
+    `LICENSE.CTAN`, which are in `texlive.infra` at the root of TeX Live.
+    It is a repack of nixpkgs' tree, not TeX Live's own archive. On
     2026-10-19, `tools/check_mirror_download.py --tree --all-hosted`
     found each runfile of the 86 hosted packages with the same bytes as in
     TeX Live's archives. The repack keeps the builds away from the

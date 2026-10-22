@@ -62,7 +62,7 @@ def read_tlpdb(path):
                 continue
             if line.startswith("name "):
                 current = {"name": line[5:], "revision": 0, "category": "", "containerBytes": 0,
-                           "sha512": "", "depends": [], "runfiles": []}
+                           "sha512": "", "depends": [], "runfiles": [], "licences": []}
                 packages[current["name"]] = current
                 section = None
             elif current is None:
@@ -84,6 +84,9 @@ def read_tlpdb(path):
                     current["sha512"] = value
                 elif key == "depend":
                     current["depends"].append(value)
+                elif key == "catalogue-license":
+                    # For example "lppl1.3c gpl2".
+                    current["licences"] = value.split()
     config_entry = packages.pop("00texlive.config")
     config = dict(value.split("/", 1) for value in config_entry["depends"] if "/" in value)
     config.setdefault("revision", str(config_entry["revision"]))

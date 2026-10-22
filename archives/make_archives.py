@@ -21,8 +21,9 @@ texlive.tlpdb), at their paths relative to texmf-dist (for example
 serves both. The index lists only the files that pdfTeX can read, so an
 archive also has files that the index does not list (for example the
 makeindex, dvips or ConTeXt files of a package), and an app writes only the
-indexed files. An archive has no documentation, source or tlpkg/ files, as
-TeX Live's runfile archives. With all runfiles, an archive is a complete,
+indexed files. An archive has no documentation or source files, as TeX
+Live's runfile archives, and no runfiles of TeX Live's installer and tlmgr
+(in tlpkg/ and at the root of TeX Live). With all runfiles, an archive is a complete,
 unchanged copy of the package's installed files: a compiled work in the
 terms of the LPPL (docs/design.md, "Licences").
 
@@ -83,12 +84,22 @@ def write_archive(path, relative_paths, tree):
 
 
 def runfiles_of(name, packages, indexed_paths, tree):
-    """All runfiles of a package, relative to texmf-dist. Each indexed file is
-    one of them, and the tree has each of them."""
+    """All runfiles of a package in texmf-dist, relative to it. Each indexed
+    file is one of them, and the tree has each of them. Runfiles outside
+    texmf-dist are files of TeX Live's installer and tlmgr: in tlpkg/ (for
+    example dvipdfmx's tlpkg/tlpostcode/dvipdfmx.pl), or at the root of TeX
+    Live (install-tl, and texlive.infra's LICENSE.TL, LICENSE.CTAN and
+    release-texlive.txt). TeX never reads them, so an archive does not hold
+    them. An LPPL package must not have them: its archive is a compiled work
+    only with all its runfiles (docs/design.md, "Licences")."""
     runfiles = []
     for path in packages[name]["runfiles"]:
         if not path.startswith("texmf-dist/"):
-            raise SystemExit(f"{name}: the runfile {path} is not in texmf-dist")
+            if not (path.startswith("tlpkg/") or "/" not in path):
+                raise SystemExit(f"{name}: the runfile {path} is not in texmf-dist, tlpkg or the root of TeX Live")
+            if any(licence.startswith("lppl") for licence in packages[name]["licences"]):
+                raise SystemExit(f"{name}: an LPPL package with the runfile {path}, which an archive cannot hold")
+            continue
         runfiles.append(path[len("texmf-dist/"):])
     not_runfiles = sorted(set(indexed_paths) - set(runfiles))
     if not_runfiles:
@@ -132,6 +143,12 @@ def main():
     if too_large:
         raise SystemExit(f"bundle packages larger than {args.max_bundle_package_bytes} bytes: {too_large}. "
                          "Change the bundle documents, or list the packages in --hosted.")
+    # Check the runfiles of every package of the scope, not only of the
+    # packages that this build packs: a package that a later build hosts, or
+    # an offline layer of a child, must not fail first there.
+    for entries in scope_packages.values():
+        for name, package in entries.items():
+            runfiles_of(name, packages, package["files"], tree)
     archives = {"hosted": {}, "offline": {}}
     for scope, entries in scope_packages.items():
         for name, package in entries.items():
