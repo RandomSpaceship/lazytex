@@ -211,6 +211,8 @@ file at `baseUrl` is missing). The next operation tries the start again.
 
 TeX stops at the first missing file, so a document can need more than one
 round of `needs`. Show one progress view for all rounds of a compile.
+[`pages/web/app.js`](../pages/web/app.js) does this, with a stop button and
+a timer.
 
 ## The scan
 

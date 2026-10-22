@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lazytex demo</title>
+<link rel="stylesheet" href="style.css">
+<header>
+  <div>
+    <h1>lazytex</h1>
+    <p class="subtitle">pdfLaTeX in WebAssembly, in your browser</p>
+  </div>
+  <div id="status" class="status" data-kind="busy" role="status" aria-live="polite">
+    <span class="dot" aria-hidden="true"></span>
+    <span id="status-label">Starting the engine…</span>
+    <span id="timer" class="timer" hidden></span>
+  </div>
+</header>
+
+<main>
+  <section class="editor">
+    <label for="source" class="section-label">Document</label>
+    <textarea id="source" spellcheck="false">\documentclass{standalone}
+\usepackage{tikz}
+\begin{document}
+\begin{tikzpicture}
+  \draw[->] (0,0) -- (2,1) node[right] {$x$};
+\end{tikzpicture}
+\end{document}
+</textarea>
+    <div class="toolbar">
+      <button id="compile" class="primary">Compile</button>
+      <button id="stop" disabled>Stop</button>
+      <span class="hint">Ctrl+Enter compiles</span>
+    </div>
+  </section>
+
+  <section class="preview">
+    <div class="preview-label">
+      <span class="section-label">PDF</span>
+      <a id="pdf-download" class="section-label" download="document.pdf" hidden>Download PDF</a>
+    </div>
+    <div class="frame">
+      <div id="pdf" class="pages" role="img" aria-label="The PDF" hidden></div>
+      <p id="pdf-empty" class="empty">The PDF shows here after a compile.</p>
+    </div>
+  </section>
+</main>
+
+<section class="activity" aria-label="Progress">
+  <p id="phase" class="phase"></p>
+  <ul id="downloads" class="downloads"></ul>
+  <div id="run" class="run" hidden>
+    <div class="bar indeterminate"><span></span></div>
+    <p id="run-detail" class="detail"></p>
+  </div>
+</section>
+
+<section class="messages">
+  <ul id="errors" class="errors"></ul>
+  <span class="section-label">Log</span>
+  <ul id="log" class="log"></ul>
+</section>
+
+<footer>
+  This site has only the packages of the medium scope.
+  <a href="NOTICE.html">Licences and source</a> ·
+  <a href="pdfjs/LICENSE">PDF.js licence</a> ·
+  <a href="https://github.com/RandomSpaceship/lazytex">lazytex on GitHub</a>
+</footer>
+<script type="module" src="app.js"></script>
+</html>

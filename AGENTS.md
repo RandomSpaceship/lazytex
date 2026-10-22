@@ -53,9 +53,9 @@ published. The release workflow is not built.
 - `nix run .#release-assemble -- TAG OUT`: the release files for a tag, checked.
 - `nix build .#engine`, `.#library`, `.#index`, `.#bundle`, `.#archives`, `.#loads`: one part.
 - `nix build .#example-release`, `.#example-site`: the example child.
-- `nix build .#example-pages`: the example page and its site, with the medium
-  tree only, for GitHub Pages (`.github/workflows/pages.yml`, which starts
-  after each successful check of a push to `main`).
+- `nix build .#pages`: the demo site (`pages/`), with the medium tree only,
+  for GitHub Pages (`.github/workflows/pages.yml`, which starts after each
+  successful check of a push to `main`). `nix run .#pages` serves it.
 - `nix run .#example`: the example page on <http://127.0.0.1:8050/>.
 - `nix develop`: a shell with the tools.
 
@@ -108,7 +108,11 @@ old reader cannot read needs a new version.
 the code does not show:
 
 - `example/` is the test fixture of `tests/` and the walkthrough of
-  `docs/child-repos.md`. Keep the three in agreement.
+  `docs/child-repos.md`. Keep the three in agreement. Keep its page
+  (`example/web/`) the shortest complete compile loop.
+- `pages/` is the demo site on GitHub Pages. It uses the example child's
+  release, and adds progress, a status, a stop button, a timer, and a PDF
+  preview with PDF.js (pinned in `pages/default.nix`).
 - The tests use three document folders, joined into one directory by
   `flake.nix`: `tests/documents/` (test cases), `example/documents/` (the
   example's bundle documents) and `bundle/documents/` (lazytex's bundle
@@ -142,3 +146,11 @@ read. To add files, add a document.
 - The example page does not download packages. `example/README.md` has notes
   on how a web page can do it.
 - A move to current TeX Live (README, last section): not planned.
+- Possible work on the demo site (`pages/`):
+  - Keep the downloaded files after a stop. A service worker can keep the
+    engine, the index, the bundles and the TeX files in Cache Storage.
+    Find out first if the synchronous requests of the worker go through a
+    service worker.
+  - Keep the compiled `WebAssembly.Module` and the unpacked bundles on the
+    main thread, and give them to each new worker. Measure first how much
+    time this saves.

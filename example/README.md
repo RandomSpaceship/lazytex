@@ -6,22 +6,20 @@ A minimal child of lazytex, and a web page that compiles LaTeX with it.
 
 ## Run the page
 
-| Command | What it does |
-|---|---|
-| `nix run .#example` | Serves the page on <http://127.0.0.1:8050/>, with the full TeX tree as the installed packages. |
-| `nix build .#example-pages` | Makes the page as a static site for GitHub Pages, with the medium tree only. |
+`nix run .#example` serves the page on <http://127.0.0.1:8050/>, with the
+full TeX tree as the installed packages. [`serve.py`](serve.py) is a small
+static server: it looks for each file in `web/` first, then in the site.
 
-[`serve.py`](serve.py) is a small static server: it looks for each file in
-`web/` first, then in the site. A Pages site has a size limit of 1 GB, and
-the full tree is 3.9 GB. Thus the Pages site has only the packages of the
-medium scope (852 MB), and `site.json` tells the page. When a document needs
-a package outside the medium scope, the page shows a warning and stops.
+The page is the shortest complete compile loop. The demo site on GitHub
+Pages ([`pages/`](../pages/)) uses the same child, and adds progress, a
+status, a stop button and a timer.
 
 ## Install packages in a browser
 
-The page does not download packages: both sites have them already. A real
-app downloads each package when a compile result is `needs`. These notes
-tell how a web page can do this. Nobody has built or tested it.
+The page does not download packages: the site has them already, and so
+does the Pages site (for the medium scope). A real app downloads each
+package when a compile result is `needs`. These notes tell how a web page
+can do this. Nobody has built or tested it.
 [`docs/formats.md`](../docs/formats.md), "When a compile needs packages",
 gives the general procedure.
 

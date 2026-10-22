@@ -1,4 +1,4 @@
-# Publishes the example page (`nix build .#example-pages`) on GitHub Pages.
+# Publishes the demo site (`nix build .#pages`, pages/) on GitHub Pages.
 #
 # The site has the medium tree only (about 900 MB; the limit of a Pages site
 # is 1 GB). Set the source of the repo's Pages to "GitHub Actions" first.
@@ -52,7 +52,7 @@ jobs:
           save: false
 
       - name: Build the site
-        run: nix build .#example-pages --print-build-logs
+        run: nix build .#pages --print-build-logs
 
       # The action makes a tar file with --dereference, so the links of the
       # Nix output become files.

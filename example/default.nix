@@ -16,12 +16,8 @@
 #   check     release/check_release.py with --parent
 #   appSite   what the app serves: both releases in one directory, and the
 #             full tree as a stand-in for installed packages
-#   pages     the example page (web/) and appSite with the medium tree only,
-#             for GitHub Pages (1 GB limit): packages outside the medium
-#             scope are not installed
 {
   lib,
-  runCommand,
   lazytex,
   # lazytex's release: its index/ is the full index that the app narrows.
   parent,
@@ -114,17 +110,4 @@ in
     inherit release parent;
     tree = lazytex.texlive.full;
   };
-  pages =
-    let
-      site = lazytex.appSite {
-        name = "example-pages-site";
-        inherit release parent;
-        tree = mediumTree;
-      };
-    in
-    runCommand "example-pages" { } ''
-      mkdir $out
-      ln -s ${site}/* ${./web}/* $out/
-      echo '{ "mediumOnly": true }' > $out/site.json
-    '';
 }

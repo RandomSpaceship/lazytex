@@ -1,0 +1,187 @@
+:root {
+  color-scheme: light dark;
+  --background: #f7f7f5;
+  --surface: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --border: #dcdcd6;
+  --accent: #2f5fd0;
+  --accent-text: #ffffff;
+  --track: #e6e6e0;
+  --ready: #2e8b57;
+  --busy: #d08a00;
+  --error: #c8372d;
+  --stopped: #7a7a74;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #161615;
+    --surface: #1f1f1d;
+    --text: #ececea;
+    --muted: #9c9c96;
+    --border: #3a3a37;
+    --accent: #7096ff;
+    --accent-text: #0e0e0d;
+    --track: #33332f;
+    --ready: #4cc27f;
+    --busy: #f0b030;
+    --error: #ff6b5f;
+    --stopped: #9c9c96;
+  }
+}
+
+* { box-sizing: border-box; }
+/* Also for elements with their own display. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: var(--background);
+  color: var(--text);
+  font: 15px/1.45 system-ui, sans-serif;
+  max-width: 1400px;
+  margin-inline: auto;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+h1 { margin: 0; font-size: 1.5rem; }
+.subtitle { margin: 0; color: var(--muted); }
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+}
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--stopped); flex: none; }
+.status[data-kind="ready"] .dot { background: var(--ready); }
+.status[data-kind="busy"] .dot { background: var(--busy); animation: pulse 1s ease-in-out infinite; }
+.status[data-kind="warning"] .dot { background: var(--busy); }
+.status[data-kind="error"] .dot { background: var(--error); }
+.status[data-kind="stopped"] .dot { background: var(--stopped); }
+.timer { color: var(--muted); }
+
+@keyframes pulse { 50% { opacity: 0.3; } }
+
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+@media (max-width: 800px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+}
+
+.section-label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 0.85rem; }
+
+textarea {
+  width: 100%;
+  height: 50vh;
+  min-height: 240px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: 14px/1.4 ui-monospace, monospace;
+  resize: vertical;
+}
+
+/* The PDF: one canvas for each page, as wide as the frame. On a desktop the
+   frame is as tall as the editor, and scrolls. On a narrow screen it is as
+   tall as its pages. */
+.frame {
+  height: 50vh;
+  min-height: 240px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  overflow: auto;
+  /* A scrollbar must not change the width of the pages. */
+  scrollbar-gutter: stable;
+}
+@media (max-width: 800px) {
+  .frame { height: auto; min-height: 0; }
+}
+.pages { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px; }
+.pages canvas { display: block; max-width: 100%; background: #ffffff; box-shadow: 0 0 0 1px var(--border); }
+.preview-label { display: flex; justify-content: space-between; align-items: baseline; }
+.empty { margin: 0; padding: 16px; color: var(--muted); }
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.hint { color: var(--muted); font-size: 0.85rem; }
+
+button {
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button:disabled { opacity: 0.5; cursor: default; }
+
+.activity, .messages { margin-top: 16px; }
+.phase { margin: 0 0 8px; min-height: 1.45em; }
+.detail { margin: 4px 0 0; color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+.downloads { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.downloads li { display: grid; grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) 9rem; align-items: center; gap: 8px; font-size: 0.85rem; }
+.downloads .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.downloads .size { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) {
+  .downloads li { grid-template-columns: minmax(0, 1fr) auto; }
+  .downloads .bar { grid-column: 1 / -1; grid-row: 2; }
+}
+
+.bar { position: relative; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.bar span { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 3px; transition: width 0.1s linear; }
+.bar.indeterminate span { width: 30%; animation: slide 1.2s ease-in-out infinite; }
+.bar.done span { background: var(--ready); }
+@keyframes slide { from { left: -30%; } to { left: 100%; } }
+
+.errors { list-style: none; margin: 0 0 8px; padding: 0; max-height: 30vh; overflow-y: auto; }
+.errors li { padding: 6px 8px; border-left: 3px solid var(--error); background: var(--surface); margin-bottom: 4px; font-family: ui-monospace, monospace; font-size: 0.85rem; white-space: pre-wrap; }
+.errors button { padding: 0 6px; margin-right: 6px; font-size: 0.8rem; }
+
+.log { list-style: none; margin: 0; padding: 8px; min-height: 6rem; max-height: 40vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--muted); font-size: 0.85rem; font-family: ui-monospace, monospace; }
+.log li { white-space: pre-wrap; overflow-wrap: anywhere; }
+.log li.heading { margin-top: 8px; color: var(--text); font-weight: 600; }
+.log li.heading:first-child { margin-top: 0; }
+.log li.failure { color: var(--error); }
+.log time { opacity: 0.7; }
+
+footer { margin-top: 16px; color: var(--muted); font-size: 0.85rem; }
+
+/* Desktop: the page fills the window, and the log takes the rest of the
+   height and scrolls inside itself, so the page does not scroll. Below the
+   log's minimum height, the page scrolls. */
+@media (min-width: 801px) {
+  body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+  header, main, .activity, footer { flex: none; }
+  .messages { flex: 1 1 auto; min-height: 8rem; display: flex; flex-direction: column; }
+  .errors, .section-label { flex: none; }
+  .log { flex: 1 1 auto; max-height: none; }
+}
+a { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .status[data-kind="busy"] .dot, .bar.indeterminate span { animation: none; }
+  .bar.indeterminate span { width: 100%; opacity: 0.4; }
+}

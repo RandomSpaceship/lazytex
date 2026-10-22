@@ -12,10 +12,6 @@ const MEDIUM = ['index/index-medium.json'];
 const FULL = ['index/index-medium.json', 'index/index-full-extra.json'];
 const BUNDLES = ['bundle.tar', 'bundle-example.tar'];
 
-// site.json is only on the GitHub Pages site (nix build .#example-pages).
-// That site has only the packages of the medium scope.
-const site = await fetch('site.json').then((response) => (response.ok ? response.json() : {}), () => ({}));
-
 const status = document.getElementById('status');
 const say = (text) => { status.textContent = text; };
 
@@ -40,11 +36,6 @@ async function compile() {
     }
     if (result.status === 'needs' && result.packages.length) {
       const names = result.packages.map(({ name }) => name);
-      if (site.mediumOnly && tex.scope.length > MEDIUM.length) {
-        log.push(`not on this site: ${names.join(', ')}. It has only the packages of the medium scope.`,
-          'A real app downloads them (example/README.md, "Install packages in a browser").');
-        return say(log.join('\n'));
-      }
       // A real app downloads, checks and unpacks each archive here
       // (example/README.md). This site has the packages already.
       log.push(`install: ${names.join(', ')}`);

@@ -75,7 +75,11 @@
       # The example child (example/): the tests run on its site.
       example = import ./example {
         inherit lib lazytex;
-        inherit (pkgs) runCommand;
+        parent = release;
+      };
+      # The demo page on GitHub Pages (pages/), on the example child.
+      pages = pkgs.callPackage ./pages {
+        inherit lazytex example;
         parent = release;
       };
       tests = pkgs.callPackage ./tests {
@@ -109,7 +113,7 @@
         texlive-full = texlive.full;
         example-release = example.release;
         example-site = example.appSite;
-        example-pages = example.pages;
+        pages = pages.site;
         default = release;
       };
 
@@ -125,6 +129,12 @@
           type = "app";
           program = "${tests.serveExample}/bin/lazytex-example";
           meta.description = "Serve the example page on http://127.0.0.1:8050/";
+        };
+        # The GitHub Pages site, served locally.
+        pages = {
+          type = "app";
+          program = "${pages.serve}/bin/lazytex-pages";
+          meta.description = "Serve the GitHub Pages site on http://127.0.0.1:8050/";
         };
       };
 

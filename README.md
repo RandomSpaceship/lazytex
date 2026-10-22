@@ -29,8 +29,9 @@ page on <http://127.0.0.1:8050/>. Type a document, and press
 **Compile**. The first build takes some time (the TeX trees come from the
 Nix binary cache, and the engine takes about 4 minutes to compile).
 
-`nix build .#example-pages` makes the same page as a static site for GitHub
-Pages. It has only the packages of the medium scope.
+The demo site on GitHub Pages ([`pages/`](pages/)) is a larger page with
+progress, a stop button and a timer. `nix run .#pages` serves it. It has
+only the packages of the medium scope.
 
 ## What a release has
 
@@ -80,6 +81,7 @@ real one.
 | `release/` | The release files and their check. |
 | `nix/lib.nix` | The build functions (flake output `lib.<system>`), for lazytex and for child repos. |
 | `example/` | A minimal child: an app's scopes, bundle, release and web page. The tests run on it. |
+| `pages/` | The demo site on GitHub Pages: a page with progress, a stop button and a timer, on the example child. |
 | `tests/` | The Node tests and the browser test of the library. |
 | `tools/` | Tools to run by hand: `closure_sizes.py` (what a package adds to the hosted list), `check_mirror_download.py` (a real download from a TeX Live mirror), and `measure_formats.cjs` and `measure_formats_browser/` (the time of formats at the first compile, in Node and in the browser). |
 | `docs/` | The design, the formats with their JSON Schemas, and the guide for child repos. |
