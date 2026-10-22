@@ -52,6 +52,8 @@ tested on GitHub yet. The first release is `v0.0.1`.
 ## Commands
 
 - `nix flake check`: all tests (release checks, Node tests, browser test).
+  [`docs/testing.md`](docs/testing.md) tells what each check does, and how
+  CI runs them. Keep it up to date when you change a check or a workflow.
 - `nix build .#release`: lazytex's release files (tag `development`).
 - `nix run .#release-assemble -- TAG OUT`: the release tree for a tag in
   `OUT/release/` (all files that go out), checked, and the same tree packed

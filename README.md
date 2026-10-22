@@ -84,13 +84,13 @@ real one.
 | `pages/` | The demo site on GitHub Pages: a page with progress, a stop button and a timer, on the example child. |
 | `tests/` | The Node tests and the browser test of the library. |
 | `tools/` | Tools to run by hand: `closure_sizes.py` (what a package adds to the hosted list), `check_mirror_download.py` (a real download from a TeX Live mirror), and `measure_formats.cjs` and `measure_formats_browser/` (the time of formats at the first compile, in Node and in the browser). |
-| `docs/` | The design, the formats with their JSON Schemas, and the guide for child repos. |
+| `docs/` | The design, the formats with their JSON Schemas, the guide for child repos, and the tests and CI (`testing.md`). |
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `nix flake check` | All tests: the release checks, the Node tests and the browser test. |
+| `nix flake check` | All tests: the release checks, the Node tests and the browser test ([`docs/testing.md`](docs/testing.md)). |
 | `nix build .#release` | lazytex's release files, with the tag `development`. |
 | `nix run .#release-assemble -- TAG OUT` | The release tree for a tag (all files that go out), checked, in `OUT/release/`, and the same tree packed as the assets of the GitHub release in `OUT/assets/` (the release workflow). It has the `loads` records of all packages. |
 | `nix build .#release-full` | The release files with the `loads` records of all packages. This takes about 8 minutes on 16 threads, so CI builds it. `.#release` has the records of the hosted packages only. |
