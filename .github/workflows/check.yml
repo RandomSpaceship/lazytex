@@ -2,7 +2,7 @@
 #
 # The TeX trees come from the Nix binary cache (cache.nixos.org), not from
 # the TeX Live mirrors. Our own outputs (the engine, the library, the index,
-# the loads measurement, the bundles, the archives, the releases and the
+# the loads measurements, the bundles, the archives, the releases and the
 # checks) are not in that cache. cache-nix-action keeps them in the GitHub
 # Actions cache, so that a run builds only what changed.
 name: check
@@ -45,13 +45,19 @@ jobs:
       - name: Run all checks
         run: nix flake check --print-build-logs
 
+      # The release with the loads of all packages (index/measure_loads.cjs).
+      # The checks use the hosted packages only, because the measurement of
+      # all packages takes too long for a local build.
+      - name: Measure the loads of all packages
+        run: nix build .#release-full --print-build-logs
+
       # GC roots for our own outputs and the checks, so that the garbage
       # collection before the cache save keeps them. A check whose inputs did
       # not change is then not run again.
       - name: Keep our outputs in the cache
         run: |
           mkdir -p .gcroots
-          for output in engine library index bundle-trace bundle archives loads release example-release; do
+          for output in engine library index bundle-trace bundle archives loads loads-full release release-full example-release; do
             nix build ".#$output" --out-link ".gcroots/$output"
           done
           for check in $(nix eval --raw .#checks.x86_64-linux --apply 'checks: builtins.concatStringsSep " " (builtins.attrNames checks)'); do

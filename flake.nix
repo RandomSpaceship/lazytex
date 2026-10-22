@@ -71,6 +71,27 @@
         };
         loads = [ loads ];
       };
+      # The loads of all packages of the full scope. This takes about 7 min
+      # with 16 threads, so only CI and the release use it. Local builds and
+      # the checks use the hosted loads above.
+      allPackages = pkgs.runCommand "lazytex-all-packages.json" { nativeBuildInputs = [ pkgs.jq ]; } ''
+        jq '.packages | keys' ${index}/index-full.json > $out
+      '';
+      loadsFull = lazytex.measureLoads {
+        name = "lazytex-loads-full";
+        site = fullSite;
+        scope = fullScope;
+        packages = allPackages;
+      };
+      releaseFull = lazytex.makeRelease {
+        name = "lazytex-release-full";
+        repository = "RandomSpaceship/lazytex";
+        inherit index archives;
+        bundles = {
+          "bundle.tar" = bundle;
+        };
+        loads = [ loadsFull ];
+      };
 
       # The example child (example/): the tests run on its site.
       example = import ./example {
@@ -110,6 +131,8 @@
           release
           ;
         bundle-trace = bundleTrace;
+        loads-full = loadsFull;
+        release-full = releaseFull;
         texlive-full = texlive.full;
         example-release = example.release;
         example-site = example.appSite;
@@ -121,7 +144,7 @@
         # The release workflow: lazytex's release files for a tag, checked.
         release-assemble = {
           type = "app";
-          program = "${release.assemble}/bin/lazytex-release-assemble";
+          program = "${releaseFull.assemble}/bin/lazytex-release-full-assemble";
           meta.description = "Assemble and check lazytex's release files for a tag (TAG OUT [OWNER/REPO])";
         };
         # The example page: compile a document in the browser.

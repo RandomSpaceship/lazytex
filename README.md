@@ -92,7 +92,8 @@ real one.
 |---|---|
 | `nix flake check` | All tests: the release checks, the Node tests and the browser test. |
 | `nix build .#release` | lazytex's release files, with the tag `development`. |
-| `nix run .#release-assemble -- TAG OUT` | The release files for a tag, checked (the release workflow). |
+| `nix run .#release-assemble -- TAG OUT` | The release files for a tag, checked (the release workflow), with the `loads` records of all packages. |
+| `nix build .#release-full` | The release files with the `loads` records of all packages. This takes about 8 minutes on 16 threads, so CI builds it. `.#release` has the records of the hosted packages only. |
 | `nix build .#engine` | The engine only. |
 | `nix build .#library` | The library only. |
 | `nix run .#example` | The example page. |

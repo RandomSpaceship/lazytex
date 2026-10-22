@@ -51,6 +51,11 @@ published. The release workflow is not built.
 - `nix flake check`: all tests (release checks, Node tests, browser test).
 - `nix build .#release`: lazytex's release files (tag `development`).
 - `nix run .#release-assemble -- TAG OUT`: the release files for a tag, checked.
+  It uses the `loads` records of all packages.
+- `nix build .#release-full`: the release files with the `loads` records of
+  all packages (`.#loads-full`). CI builds it after `nix flake check`. It
+  takes about 8 minutes on 16 threads, so local work uses `.#release`
+  (the hosted packages only).
 - `nix build .#engine`, `.#library`, `.#index`, `.#bundle`, `.#archives`, `.#loads`: one part.
 - `nix build .#example-release`, `.#example-site`: the example child.
 - `nix build .#pages`: the demo site (`pages/`), with the medium tree only,
@@ -144,9 +149,8 @@ read. To add files, add a document.
   engine's source archives (the TeX Live source, BusyTeX at its commit,
   lazytex at the release tag), and publishes it. The asset names of the
   files other than the package archives are not decided.
-- Measure the `loads` records of all packages, not only the hosted ones, in
-  CI only. A local run outside Nix took 7.5 minutes with 16 workers
-  (2026-10-22). Local builds keep the hosted packages only.
+- The time of `.#release-full` in CI is not measured yet. If it comes near
+  the job timeout (120 min), divide the packages into groups in matrix jobs.
 - The example page does not download packages. `example/README.md` has notes
   on how a web page can do it.
 - A move to current TeX Live (README, last section): not planned.

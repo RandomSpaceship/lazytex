@@ -154,8 +154,11 @@ the full `ls-R` is 4.0 MB instead of 0.57 MB, and pdfTeX reads `pdftex.map`
 
 ### Measured loads
 
-`index/measure_loads.cjs` measures the hosted packages, and the release step
-writes the records into the index. For each entry file of a package, the
+`index/measure_loads.cjs` measures the packages, and the release step writes
+the records into the index. The published release (`.#release-full`, and
+`nix run .#release-assemble`) has the records of all packages. The local
+`.#release` and the checks have the records of the hosted packages only,
+because the measurement of all packages takes too long for a local build. For each entry file of a package, the
 measurement compiles a small document with all packages installed, and
 records the packages that the run opened:
 
