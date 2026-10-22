@@ -6,6 +6,11 @@
 # and the comments below give the reason for each one.
 #
 #   sources       the source archives BusyTeX's Makefile would download
+#   source-archives
+#                 the corresponding source of the engine, which each release
+#                 attaches: these archives, a tar of BusyTeX at its commit,
+#                 and sources.json, which lists them with the other inputs
+#                 (docs/formats.md, "Sources")
 #   native-tools  native helper programs (tangle, ctangle, tie, web2c, ...) that
 #                 the wasm build runs
 #   wasm-objects  TeX Live configured and compiled for wasm: the libraries and
@@ -17,8 +22,12 @@
 {
   lib,
   stdenv,
+  runCommand,
+  writeText,
   fetchurl,
   busytexSrc,
+  # The nixpkgs commit of the flake, for sources.json.
+  nixpkgsRevision ? null,
   python3,
   perl,
   autoconf,
@@ -61,6 +70,61 @@ let
       hash = "sha256-a+TrtYXtcql4BDPdixSRaGOvboz4wyiO7nPlYjptt10=";
     };
   };
+
+  busytexRevision = busytexSrc.rev or "unknown";
+  busytexAsset = "busytex-${builtins.substring 0 12 busytexRevision}.tar.gz";
+
+  # The source archives that a release attaches, by asset name, and the
+  # inputs that it only links to. make_release.py adds the size and SHA-512 of
+  # each archive, and the release's own repository and commit.
+  sourceList = [
+    {
+      name = "texlive-source";
+      version = texliveSource;
+      url = sources.texlive.url;
+      asset = "texlive-source-${texliveSource}.tar.gz";
+    }
+    {
+      name = "busytex";
+      commit = busytexRevision;
+      url = "https://github.com/busytex/busytex/tree/${busytexRevision}";
+      asset = busytexAsset;
+    }
+    {
+      name = "expat";
+      version = "2.5.0";
+      url = sources.expat.url;
+      asset = "expat-2.5.0.tar.gz";
+    }
+    {
+      name = "fontconfig";
+      version = "2.13.96";
+      url = sources.fontconfig.url;
+      asset = "fontconfig-2.13.96.tar.gz";
+    }
+    {
+      name = "emscripten";
+      version = emscripten.version;
+      url = "https://github.com/emscripten-core/emscripten/tree/${emscripten.version}";
+    }
+  ]
+  ++ lib.optional (nixpkgsRevision != null) {
+    name = "nixpkgs";
+    commit = nixpkgsRevision;
+    url = "https://github.com/NixOS/nixpkgs/tree/${nixpkgsRevision}";
+  };
+
+  source-archives = runCommand "busytex-pdftex-sources" { } ''
+    mkdir $out
+    ln -s ${sources.texlive} $out/texlive-source-${texliveSource}.tar.gz
+    ln -s ${sources.expat} $out/expat-2.5.0.tar.gz
+    ln -s ${sources.fontconfig} $out/fontconfig-2.13.96.tar.gz
+    # BusyTeX at its commit, as a tar with fixed metadata: GitHub does not
+    # promise the same bytes for its own archive of a commit.
+    tar --sort=name --mtime=@1 --owner=0 --group=0 --numeric-owner --mode=u+w \
+      --transform 's,^\.,busytex-${busytexRevision},' -C ${busytexSrc} -cf - . | gzip -9n > $out/${busytexAsset}
+    cp ${writeText "sources.json" (builtins.toJSON sourceList)} $out/sources.json
+  '';
 
   buildTools = [
     python3
@@ -234,7 +298,7 @@ let
     cp $emscriptenLib/compiler-rt/LICENSE.TXT $out/licenses/compiler-rt.txt
     substitute ${./NOTICE.html} $out/NOTICE.html \
       --subst-var-by texliveSource ${sources.texlive.url} \
-      --subst-var-by busytex ${busytexSrc.rev or "unknown"} \
+      --subst-var-by busytex ${busytexRevision} \
       --subst-var-by emscripten ${emscripten.version}
   '';
 
@@ -329,7 +393,7 @@ let
       cat > $out/engine.json <<EOF
       {
         "name": "busytex-pdftex",
-        "busytex": "${busytexSrc.rev or "unknown"}",
+        "busytex": "${busytexRevision}",
         "texliveSource": "${sources.texlive.url}",
         "emscripten": "${emscripten.version}",
         "engines": ["pdftex"]
@@ -337,11 +401,13 @@ let
       EOF
       runHook postInstall
     '';
+    passthru.sourceArchives = source-archives;
   };
 in
 {
   inherit
     sources
+    source-archives
     native-tools
     wasm-objects
     wasm

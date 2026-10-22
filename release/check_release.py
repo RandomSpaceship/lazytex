@@ -17,7 +17,14 @@ release; a child runs it on its release with --parent.
   package. A file has its own loads record only in a measured package, and
   only if the set differs from the package's.
 - manifest.json lists every other file of the release, with the correct size
-  and SHA-512. The files marked "parent" are not in the release.
+  and SHA-512, except release-notes.md and sources/. The files marked
+  "parent" are not in the release.
+- Each source archive in sources/ is in the manifest's sources, with the
+  correct size and SHA-512, and its asset name is not the name of a release
+  archive. A child's sources are the parent's, and then its own repository.
+- With --assembled (the release workflow): the manifest names a clean
+  commit of the repository, and lazytex's release has all its source
+  archives.
 - Each releaseArchive URL names this release's tag and an archive of this
   release by its file name (or the parent release, for an entry that the
   child copied), and agrees with the manifest. Each release archive holds
@@ -40,7 +47,7 @@ release; a child runs it on its release with --parent.
   change, except for the releaseArchive and loads entries that this release
   adds (for packages that the parent does not host or measure).
 
-  python3 check_release.py --release RELEASE --schemas DOCS [--parent PARENT_RELEASE]
+  python3 check_release.py --release RELEASE --schemas DOCS [--parent PARENT_RELEASE] [--assembled]
 
 The script needs the jsonschema package. uv installs it from the block at
 the top of this file:
@@ -61,6 +68,7 @@ import jsonschema
 FORMAT_PATH = "home/web_user/fmt/pdflatex.fmt"
 ASSET_URL = re.compile(r"https://github\.com/(?P<repository>[^/]+/[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<asset>[^/]+)")
 BUNDLE_NAME = re.compile(r"bundle(-[a-z0-9-]+)?\.tar")
+NOT_LISTED = ("release-notes.md", "sources/")
 problems = []
 
 
@@ -134,6 +142,7 @@ def main():
     parser.add_argument("--release", required=True)
     parser.add_argument("--schemas", required=True, help="the docs directory with the JSON Schemas")
     parser.add_argument("--parent", help="the parent release, for a child release")
+    parser.add_argument("--assembled", action="store_true", help="a release to publish: it needs a clean commit and its source archives")
     args = parser.parse_args()
     release, schemas = Path(args.release), Path(args.schemas)
 
@@ -180,13 +189,14 @@ def main():
                 if where != "package" and loads == package.get("loads"):
                     problem(f"{name}: {package_name}: {where} has the same loads as its package")
     if any(index["texlive"] != chain[0]["texlive"] for index in chain) or (
-            manifest["upstream"] and chain[0]["texlive"] != manifest["upstream"]["texliveData"]):
+            chain[0]["texlive"] != manifest["texlive"]):
         problem("the index files and the manifest disagree on the TeX Live release")
 
     # The manifest lists every other file, with the correct size and SHA-512.
     own_files = {path: entry for path, entry in manifest["files"].items() if not entry.get("parent")}
     parent_files = {path: entry for path, entry in manifest["files"].items() if entry.get("parent")}
     on_disk = {path.relative_to(release).as_posix() for path in release.rglob("*") if path.is_file()} - {"manifest.json"}
+    on_disk = {relative_path for relative_path in on_disk if not relative_path.startswith(NOT_LISTED)}
     if on_disk != set(own_files):
         problem(f"manifest and files differ: not listed {sorted(on_disk - set(own_files))[:5]}, "
                 f"missing {sorted(set(own_files) - on_disk)[:5]}")
@@ -245,6 +255,30 @@ def main():
                 if not path.is_file() or path.stat().st_size != size:
                     problem(f"generated/{index['scope']}/{tree}/{relative_path}: missing or wrong size")
 
+    # The sources: each archive in sources/ agrees with the manifest, and an
+    # assembled release names a clean commit and has all its archives.
+    attached = {source["asset"]: source for source in manifest["sources"] if "asset" in source}
+    for asset_name in set(attached) & set(archive_paths):
+        problem(f"{asset_name}: a source archive and a release archive have the same asset name")
+    sources_dir = release / "sources"
+    on_disk_sources = {path.name for path in sources_dir.iterdir()} if sources_dir.is_dir() else set()
+    for asset_name in sorted(on_disk_sources - set(attached)):
+        problem(f"sources/{asset_name} is not in the manifest's sources")
+    for asset_name in sorted(on_disk_sources & set(attached)):
+        path = sources_dir / asset_name
+        if path.stat().st_size != attached[asset_name]["bytes"] or sha512_of(path) != attached[asset_name]["sha512"]:
+            problem(f"sources/{asset_name}: size or SHA-512 differs from the manifest")
+    own_source = manifest["sources"][-1]
+    if own_source["name"] != manifest["repository"]:
+        problem("the last source is not the release's own repository")
+    if args.assembled:
+        if not own_source["commit"] or own_source["commit"].endswith("-dirty"):
+            problem(f"the release names no clean commit of {manifest['repository']} (commit: {own_source['commit']})")
+        if not args.parent and set(attached) - on_disk_sources:
+            problem(f"source archives missing from sources/: {sorted(set(attached) - on_disk_sources)}")
+    if not (release / "release-notes.md").is_file():
+        problem("release-notes.md is not in the release")
+
     # The library and the notices.
     for relative_path in ("js/client.js", "js/worker.js", "js/types/client.d.ts", "js/LICENSE.txt", "busytex/NOTICE.html",
                           "busytex/licenses/GPL-3.0.txt", "busytex/licenses/GPL-2.0.txt", "busytex/licenses/LGPL-2.1.txt"):
@@ -280,6 +314,8 @@ def main():
         if (parent["repository"], parent["release"], parent["manifestSha512"]) != (
                 parent_manifest["repository"], parent_manifest["release"], sha512_of(parent_dir / "manifest.json")):
             problem("the manifest's parent is not this parent release")
+        if manifest["sources"][:-1] != parent_manifest["sources"]:
+            problem("the sources are not the parent's sources and then this repository")
         for relative_path, entry in parent_files.items():
             listed = parent_manifest["files"].get(relative_path)
             if not listed or (listed["bytes"], listed["sha512"]) != (entry["bytes"], entry["sha512"]):

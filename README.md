@@ -42,7 +42,7 @@ only the packages of the medium scope.
 | Bundle (`bundle.tar`) | The files that general documents read (the LaTeX kernel, the standard classes, `amsmath`, `standalone`), and `pdflatex.fmt`. The worker preloads it. | [`docs/design.md`](docs/design.md), "Bundles" |
 | Index (`index/index-full.json`) | Every TeX Live file that pdfTeX can read (161,329 files), with its package and size, and the generated files (`ls-R`, `pdftex.map`, `language.dat`). | [`docs/formats.md`](docs/formats.md) |
 | Hosted packages (`archives/hosted/`) | Archives of common packages (for example `pgfplots`, `hyperref`, `siunitx`), so that most installs come from GitHub, not from the TeX Live mirrors. | [`docs/design.md`](docs/design.md), "Where the TeX files come from" |
-| Manifest (`manifest.json`) | Each file with its size and SHA-512, and the upstream versions. | [`docs/formats.md`](docs/formats.md) |
+| Manifest (`manifest.json`) | Each file with its size and SHA-512, and the sources of the build. | [`docs/formats.md`](docs/formats.md) |
 
 ## Use it in an app
 
@@ -78,7 +78,7 @@ real one.
 | `index/` | The full index (`make_index.py`), the narrowing for child repos (`narrow_index.py`), and the `loads` measurement (`measure_loads.cjs`). |
 | `bundle/` | The bundle trace and pack tools, and lazytex's bundle documents. |
 | `archives/` | The repacks of the hosted packages. |
-| `release/` | The release files and their check. |
+| `release/` | The release files, their check, and their assets for a GitHub release. |
 | `nix/lib.nix` | The build functions (flake output `lib.<system>`), for lazytex and for child repos. |
 | `example/` | A minimal child: an app's scopes, bundle, release and web page. The tests run on it. |
 | `pages/` | The demo site on GitHub Pages: a page with progress, a stop button and a timer, on the example child. |
@@ -92,7 +92,7 @@ real one.
 |---|---|
 | `nix flake check` | All tests: the release checks, the Node tests and the browser test. |
 | `nix build .#release` | lazytex's release files, with the tag `development`. |
-| `nix run .#release-assemble -- TAG OUT` | The release files for a tag, checked (the release workflow), with the `loads` records of all packages. |
+| `nix run .#release-assemble -- TAG OUT` | The release tree for a tag (all files that go out), checked, in `OUT/release/`, and the same tree packed as the assets of the GitHub release in `OUT/assets/` (the release workflow). It has the `loads` records of all packages. |
 | `nix build .#release-full` | The release files with the `loads` records of all packages. This takes about 8 minutes on 16 threads, so CI builds it. `.#release` has the records of the hosted packages only. |
 | `nix build .#engine` | The engine only. |
 | `nix build .#library` | The library only. |
@@ -103,9 +103,9 @@ real one.
 
 - The engine, the library, the index, the bundle, the hosted packages and the
   release files are built and tested (2026-10-19).
-- No release is published yet. The release workflow (GitHub Actions, the
-  source archives that the GPL needs, and the asset names of the files other
-  than the package archives) is not built.
+- No release is published yet. The release workflow
+  (`.github/workflows/release.yml`) is not tested on GitHub. The first
+  release is `v0.0.1`.
 - The TeX files come from the frozen TeX Live 2025 (`tlnet-final`), as
   nixpkgs packages it.
 
@@ -119,7 +119,9 @@ real one.
   unchanged files of TeX Live packages, each under its own licence.
 
 Each release has a `NOTICE.html`, and `busytex/NOTICE.html` with the engine's
-licence texts. They tell where the source of each part is.
+licence texts. They tell where the source of each part is. lazytex's release
+attaches the source archives of the engine, and its release notes link to
+them and to each other input of the build.
 
 ## A possible change: current TeX Live
 

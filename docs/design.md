@@ -235,7 +235,11 @@ people's work, with other licences:
   server, if the directions to it are clear. Thus a site with the engine
   (for example the example page on GitHub Pages, which has a size limit of
   1 GB) can point to the source and does not have to hold it. The TeX Live
-  source alone is 149 MB.
+  source alone is 149 MB. Each lazytex release attaches the source archives
+  (151 MB together), so that the source does not depend on other servers.
+  The release notes and the manifest (`sources`) list them, with the
+  other inputs of the build: Emscripten, nixpkgs and lazytex, each at its
+  version or commit.
 - **The engine build** writes `NOTICE.html` (the parts, their licences and
   the exact source references) and `licenses/` (the licence texts, taken
   from the sources of the build). The release has them in `busytex/`.

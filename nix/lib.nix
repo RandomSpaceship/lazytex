@@ -173,7 +173,8 @@ rec {
   # the tag "development", which is never published. passthru.assemble is the
   # tool of the release workflow: it writes the same files outside the Nix
   # sandbox with the real tag, so that the releaseArchive URLs name it, and
-  # checks them:
+  # checks them. It writes OUT/release/ (the files) and OUT/assets/ (the
+  # assets of the GitHub release, release/pack_assets.py):
   #
   #   nix run .#release-assemble -- TAG OUT   (lazytex's flake app; a child
   #                                           makes its own app from it)
@@ -181,6 +182,12 @@ rec {
   #   bundles  { "bundle.tar" = bundle; } for lazytex, or
   #            { "bundle-<app>.tar" = bundle; } for a child
   #   parent   lazytex's release, for a child; null for lazytex's own release
+  #   commit   the git commit of the repo (self.rev or self.dirtyRev or null).
+  #            Only assemble uses it, so a new commit does not build the
+  #            release again. The check of assemble needs a clean commit.
+  #
+  # lazytex's assembled release also has sources/, the engine's source
+  # archives, and each release has release-notes.md (docs/formats.md).
   makeRelease =
     {
       name,
@@ -191,6 +198,7 @@ rec {
       loads ? [ ],
       parent ? null,
       release ? "development",
+      commit ? null,
     }:
     let
       inputArguments = lib.concatStringsSep " " (
@@ -205,6 +213,7 @@ rec {
             [
               "--engine ${engine}"
               "--js ${library}"
+              "--sources ${engine.sourceArchives}"
             ]
           else
             [ "--parent ${parent}" ]
@@ -228,8 +237,10 @@ rec {
               echo "$out exists: give a new directory" >&2
               exit 2
             fi
-            python3 ${../release/make_release.py} ${inputArguments} --release "$tag" --repository "$repository" --out "$out"
-            python3 ${../release/check_release.py} --release "$out" --schemas ${schemas} ${checkArguments}
+            python3 ${../release/make_release.py} ${inputArguments} --release "$tag" --repository "$repository" \
+              ${lib.optionalString (commit != null) "--commit ${commit}"} ${lib.optionalString (parent == null) "--attach-sources"} --out "$out/release"
+            python3 ${../release/check_release.py} --release "$out/release" --schemas ${schemas} ${checkArguments} --assembled
+            python3 ${../release/pack_assets.py} --release "$out/release" --out "$out/assets"
           '';
         };
       }
@@ -237,7 +248,8 @@ rec {
         python3 ${../release/make_release.py} ${inputArguments} --release ${release} --repository ${repository} --out $out
       '';
 
-  # A flake check: release/check_release.py on a release.
+  # A flake check: release/check_release.py on a release, and
+  # release/pack_assets.py into a temporary directory.
   checkRelease =
     {
       name,
@@ -247,6 +259,7 @@ rec {
     runCommand name { nativeBuildInputs = [ pythonWithSchema ]; } ''
       python3 ${../release/check_release.py} --release ${release} --schemas ${schemas} \
         ${lib.optionalString (parent != null) "--parent ${parent}"}
+      python3 ${../release/pack_assets.py} --release ${release} --out $TMPDIR/assets
       touch $out
     '';
 
@@ -274,7 +287,7 @@ rec {
       ''}
       for entry in ${release}/*; do
         case "$(basename "$entry")" in
-          archives) ;;
+          archives | release-notes.md) ;;
           *) ln -s "$entry" $out/ ;;
         esac
       done

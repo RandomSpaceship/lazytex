@@ -1,0 +1,91 @@
+# Publishes the GitHub release of a version tag: vMAJOR.MINOR.PATCH, or with
+# a pre-release part (for example v0.0.2-rc.1), which becomes a pre-release.
+#
+# It starts after each successful run of the check workflow for the push of
+# a tag that starts with "v", and builds the commit of that run. Start it by
+# hand to publish a tag again: the check of its commit must have passed.
+#
+# The job assembles the release (`nix run .#release-assemble`), makes a draft
+# release with release-notes.md as its text, uploads the assets, and then
+# publishes the draft. If a step fails, the draft stays: delete it, and start
+# the workflow by hand.
+name: release
+
+on:
+  workflow_run:
+    workflows: [check]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The version tag to publish (for example v0.0.1)
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # For a tag push, head_branch of the check run is the tag name.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      TAG: ${{ github.event.workflow_run.head_branch || inputs.tag }}
+      CHECKED_COMMIT: ${{ github.event.workflow_run.head_sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG }}
+
+      # A branch can also start with "v". The tag must exist, have the form
+      # of a version, and name the commit that the check workflow tested.
+      - name: Check the tag
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "not a version tag: $TAG" >&2
+            exit 1
+          fi
+          commit=$(git rev-parse HEAD)
+          if [ -n "$CHECKED_COMMIT" ] && [ "$commit" != "$CHECKED_COMMIT" ]; then
+            echo "the tag $TAG names $commit, not the checked commit $CHECKED_COMMIT" >&2
+            exit 1
+          fi
+          passed=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow check --commit "$commit" --status success --json databaseId --jq length)
+          if [ "$passed" = 0 ]; then
+            echo "no successful check of $commit" >&2
+            exit 1
+          fi
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Restores the outputs that the check workflow keeps (the engine, the
+      # loads of all packages, the releases), so that this job does not
+      # build them again. It does not save a cache.
+      - uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ env.CHECKED_COMMIT || github.sha }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          save: false
+
+      - name: Assemble the release
+        run: nix run .#release-assemble --print-build-logs -- "$TAG" out
+
+      - name: Publish the release
+        run: |
+          prerelease=()
+          if [[ "$TAG" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "$TAG" --draft --verify-tag --title "$TAG" \
+            --notes-file out/release/release-notes.md "${prerelease[@]}"
+          gh release upload "$TAG" out/assets/*
+          #gh release edit "$TAG" --draft=false

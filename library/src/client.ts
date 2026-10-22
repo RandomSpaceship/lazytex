@@ -187,10 +187,11 @@ export class TexEngine {
   }
 
   // A key for the app's format cache (SHA-512, hex): the engine, the bundles
-  // and the index files of the release, its upstream versions, and the
-  // format's source after normalizeSource() (so a change to a comment keeps
-  // the key). A format holds files that it read, so a change to any indexed
-  // package must give a new key.
+  // and the index files of the release, and the format's source after
+  // normalizeSource() (so a change to a comment keeps the key). A format holds
+  // files that it read, so a change to any indexed package must give a new
+  // key. The SHA-512 of the engine covers its sources, and the index files
+  // give the TeX Live release.
   async formatKey(source: string, { mylatexformat = false }: { mylatexformat?: boolean } = {}): Promise<string> {
     if (!this.manifestHashes) {
       this.manifestHashes = fetch(this.options.baseUrl + 'manifest.json')
@@ -198,16 +199,15 @@ export class TexEngine {
           if (!response.ok) throw new Error(`GET manifest.json: ${response.status}`);
           return response.json();
         })
-        .then((manifest: { upstream: unknown; files: Record<string, { sha512: string }> }) => [
+        .then((manifest: { files: Record<string, { sha512: string }> }) =>
           // Every index file of the release, so that a scope change keeps the key.
-          ...['busytex/busytex.wasm', 'busytex/busytex.js', ...this.bundles,
+          ['busytex/busytex.wasm', 'busytex/busytex.js', ...this.bundles,
             ...Object.keys(manifest.files).filter((path) => /^index\/[^/]+\.json$/.test(path)).sort()]
             .map((path) => {
               if (!manifest.files[path]) throw new Error(`manifest.json does not list ${path}`);
               return manifest.files[path].sha512;
-            }),
-          JSON.stringify(manifest.upstream),
-        ].join('\n'));
+            })
+            .join('\n'));
       // A failed read must not stay in the cache: the next call tries again.
       this.manifestHashes.catch(() => { this.manifestHashes = null; });
     }

@@ -6,9 +6,16 @@ lazytex's own release and a child repo's release use this script. Writes into
   NOTICE.html                   the licences of the release's parts, and
                                 where their source is
   manifest.json                 every file of the release with its size and
-                                SHA-512, and the upstream versions. A child's
+                                SHA-512, the TeX Live release of the TeX
+                                files, and the sources of the build. A child's
                                 manifest also lists the files that it uses from
                                 the parent release (marked "parent": true).
+  release-notes.md              the text of the GitHub release: the sources,
+                                with their links and SHA-512 (not an asset)
+  sources/<asset>               the engine's source archives (--sources with
+                                --attach-sources; lazytex only). They are
+                                assets of the GitHub release, but not in the
+                                manifest's files: the app does not use them.
   busytex/busytex.js, busytex/busytex.wasm, busytex/NOTICE.html,
   busytex/licenses/
                                 the engine, with its notice and licence
@@ -30,14 +37,19 @@ lazytex's own release and a child repo's release use this script. Writes into
 
   python3 make_release.py --release TAG --repository OWNER/REPO --index INDEX \
       --archives ARCHIVES [--engine ENGINE --js JS] [--bundle NAME=DIR ...] \
-      [--loads LOADS ...] [--parent PARENT_RELEASE] --out OUT
+      [--loads LOADS ...] [--sources SOURCES [--attach-sources] | --parent PARENT_RELEASE] \
+      [--commit COMMIT] --out OUT
+
+--sources is the engine's source-archives output (engine/default.nix):
+sources.json and the archives that it names. --commit is the git commit of
+the release's repository.
 
 The release name is the git tag of the GitHub release. The URL of each
 release archive is https://github.com/OWNER/REPO/releases/download/TAG/NAME,
 where NAME is the archive's file name (GitHub release assets cannot be in
 folders). The Nix build uses the tag "development", which is never
 published. The release workflow runs this script again with the real tag
-(the assemble app, release/default.nix).
+(the assemble app, makeRelease in nix/lib.nix).
 
 A package entry that already has a releaseArchive (a child copies them from
 lazytex's index) keeps it: the parent release hosts that package.
@@ -52,6 +64,7 @@ import shutil
 from pathlib import Path
 
 SAFE_NAME = re.compile(r"[A-Za-z0-9._-]+")
+NOT_LISTED = ("release-notes.md", "sources/")
 BUNDLE_NAME = re.compile(r"bundle(-[a-z0-9-]+)?\.tar")
 
 
@@ -97,7 +110,8 @@ def notice(repository, release, texlive, parent_manifest):
 <ul>
   <li><p><strong>The engine</strong> (<code>busytex/</code>, from {engine_origin}): pdfTeX, compiled to WebAssembly.
     It is under GPL-3.0-or-later. <a href="busytex/NOTICE.html">busytex/NOTICE.html</a> lists its parts, their
-    licences and their source.</p></li>
+    licences and their source. The release notes of {engine_origin} link to the source archives of the
+    engine, and its <code>manifest.json</code> lists them (<code>sources</code>).</p></li>
   <li><p><strong>The library</strong> (<code>js/</code>, from {engine_origin}): lazytex's code, under the MIT licence
     (<a href="js/LICENSE.txt">js/LICENSE.txt</a>).</p></li>
   <li><p><strong>The TeX files</strong> (the bundles, <code>archives/</code> and the generated files in
@@ -125,6 +139,40 @@ def notice(repository, release, texlive, parent_manifest):
 """
 
 
+def release_notes(manifest, parent_manifest):
+    """release-notes.md: the text of the GitHub release, with each source and its link."""
+    if parent_manifest is None:
+        origin = "This release attaches"
+        asset_base_url = f"https://github.com/{manifest['repository']}/releases/download/{manifest['release']}/"
+    else:
+        parent_url = f"https://github.com/{parent_manifest['repository']}/releases"
+        origin = (f"The engine comes from the release [{parent_manifest['release']}]({parent_url}/tag/{parent_manifest['release']}) "
+                  f"of {parent_manifest['repository']}, which attaches")
+        asset_base_url = f"{parent_url}/download/{parent_manifest['release']}/"
+    attached = [source for source in manifest["sources"] if "asset" in source]
+    linked = [source for source in manifest["sources"] if "asset" not in source]
+
+    def version(source):
+        return source.get("version") or (source["commit"] or "not known")[:12]
+
+    lines = [f"# {manifest['repository']} {manifest['release']}", "",
+             "`manifest.json` lists each file of this release, with its size and SHA-512. "
+             "`NOTICE.html` gives the licences of the parts of the release.", "",
+             "## Source", "",
+             "The engine (`busytex/busytex.js` and `busytex/busytex.wasm`) is under GPL-3.0-or-later. "
+             f"{origin} its corresponding source:", "",
+             "| Source | Version | Upstream | Asset |", "|---|---|---|---|"]
+    lines += [f"| {source['name']} | {version(source)} | <{source['url']}> | [{source['asset']}]({asset_base_url}{source['asset']}) |"
+              for source in attached]
+    lines += ["", "The build also used these inputs. The release links to them, and does not attach them:", "",
+              "| Input | Version | Link |", "|---|---|---|"]
+    lines += [f"| {source['name']} | {version(source)} | <{source['url']}> |" for source in linked]
+    lines += ["", "The SHA-512 of each attached archive (for `sha512sum -c`):", "", "```"]
+    lines += [f"{source['sha512']}  {source['asset']}" for source in attached]
+    lines += ["```", ""]
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--release", required=True, help="the release name: the git tag, for example v1.0.0")
@@ -136,6 +184,9 @@ def main():
     parser.add_argument("--bundle", action="append", default=[], help="NAME=DIR: DIR/bundle.tar becomes NAME in the release")
     parser.add_argument("--loads", action="append", default=[], help="the output of measure_loads.cjs (loads.json)")
     parser.add_argument("--parent", help="the parent release (a directory with its manifest.json)")
+    parser.add_argument("--sources", help="the engine's source archives, with sources.json (lazytex only)")
+    parser.add_argument("--attach-sources", action="store_true", help="copy the source archives into sources/")
+    parser.add_argument("--commit", help="the git commit of the release's repository")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", args.release):
@@ -144,6 +195,8 @@ def main():
         raise SystemExit(f"not OWNER/REPO: {args.repository!r}")
     if bool(args.engine) == bool(args.parent) or bool(args.js) == bool(args.parent):
         raise SystemExit("give --engine and --js (lazytex's release), or --parent (a child release)")
+    if bool(args.sources) == bool(args.parent) or (args.attach_sources and not args.sources):
+        raise SystemExit("give --sources for lazytex's release (and --attach-sources only with it), and not for a child release")
     asset_base_url = f"https://github.com/{args.repository}/releases/download/{args.release}/"
     index_dir, archives_dir, out = Path(args.index), Path(args.archives), Path(args.out)
 
@@ -205,31 +258,46 @@ def main():
     parent_manifest = json.loads((Path(args.parent) / "manifest.json").read_text()) if args.parent else None
     (out / "NOTICE.html").write_text(notice(args.repository, args.release, texlive, parent_manifest))
 
+    # The sources: the engine's (lazytex's sources.json, with the size and
+    # SHA-512 of each archive), or the parent's, then this repository at its
+    # commit.
+    if args.sources:
+        sources_dir = Path(args.sources)
+        sources = json.loads((sources_dir / "sources.json").read_text())
+        for source in sources:
+            if "asset" not in source:
+                continue
+            if not SAFE_NAME.fullmatch(source["asset"]) or source["asset"] in asset_names:
+                raise SystemExit(f"{source['asset']}: not a safe asset name, or the name of a release archive")
+            archive_path = sources_dir / source["asset"]
+            source["bytes"] = archive_path.stat().st_size
+            source["sha512"] = sha512_of(archive_path)
+            if args.attach_sources:
+                copy(archive_path, out / "sources" / source["asset"])
+    else:
+        sources = parent_manifest["sources"]
+    repository_url = f"https://github.com/{args.repository}"
+    sources = [*sources, {"name": args.repository, "commit": args.commit,
+                          "url": f"{repository_url}/tree/{args.commit}" if args.commit else repository_url}]
+
     manifest = {
         "format": "lazytex-release",
         "version": 1,
         "release": args.release,
         "repository": args.repository,
-        "upstream": None,
+        "texlive": texlive,
+        "sources": sources,
         "files": {},
     }
-    if args.engine:
-        engine_info = json.loads((Path(args.engine) / "engine.json").read_text())
-        manifest["upstream"] = {
-            "busytex": engine_info["busytex"],
-            "texliveSource": engine_info["texliveSource"],
-            "emscripten": engine_info["emscripten"],
-            "texliveData": texlive,
-        }
     for path in sorted(item for item in out.rglob("*") if item.is_file()):
         relative_path = path.relative_to(out).as_posix()
-        manifest["files"][relative_path] = {"bytes": path.stat().st_size, "sha512": sha512_of(path)}
+        if not relative_path.startswith(NOT_LISTED):
+            manifest["files"][relative_path] = {"bytes": path.stat().st_size, "sha512": sha512_of(path)}
     if args.parent:
         # The files that an app needs from the parent release: the engine,
         # the library and the parent's bundles. The app downloads them from
         # the parent release, and serves them next to this release's files.
         parent_dir = Path(args.parent)
-        manifest["upstream"] = parent_manifest["upstream"]
         manifest["parent"] = {"repository": parent_manifest["repository"], "release": parent_manifest["release"],
                               "manifestSha512": sha512_of(parent_dir / "manifest.json")}
         for relative_path, entry in parent_manifest["files"].items():
@@ -239,6 +307,7 @@ def main():
                 manifest["files"][relative_path] = {"bytes": entry["bytes"], "sha512": entry["sha512"], "parent": True}
         manifest["files"] = dict(sorted(manifest["files"].items()))
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (out / "release-notes.md").write_text(release_notes(manifest, parent_manifest))
 
 
 if __name__ == "__main__":

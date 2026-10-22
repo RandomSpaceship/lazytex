@@ -9,7 +9,8 @@
     "version",
     "release",
     "repository",
-    "upstream",
+    "texlive",
+    "sources",
     "files"
   ],
   "additionalProperties": false,
@@ -30,54 +31,82 @@
       "type": "string",
       "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"
     },
-    "upstream": {
-      "description": "The upstream versions that the release was built from. A child release copies them from its parent release.",
+    "texlive": {
+      "description": "The TeX Live release of the TeX files (as 'texlive' in the index).",
       "type": "object",
       "required": [
-        "busytex",
-        "texliveSource",
-        "emscripten",
-        "texliveData"
+        "year",
+        "revision",
+        "frozen"
       ],
       "additionalProperties": false,
       "properties": {
-        "busytex": {
-          "description": "BusyTeX commit.",
-          "type": "string",
-          "pattern": "^[0-9a-f]{40}$"
+        "year": {
+          "type": "integer"
         },
-        "texliveSource": {
-          "description": "URL of the TeX Live source archive of the engine.",
-          "type": "string"
+        "revision": {
+          "type": "integer"
         },
-        "emscripten": {
-          "type": "string"
-        },
-        "texliveData": {
-          "description": "The TeX Live release of the TeX files (as 'texlive' in the index).",
-          "type": "object",
-          "required": [
-            "year",
-            "revision",
-            "frozen"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "year": {
-              "type": "integer"
-            },
-            "revision": {
-              "type": "integer"
-            },
-            "frozen": {
-              "type": "boolean"
-            }
+        "frozen": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sources": {
+      "description": "The sources of the build: the engine's source archives (attached to lazytex's release as the assets in 'asset'), the inputs that the release only links to, and last, the release's own repository at its commit. A child release has the parent's sources, and then its own repository.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "url"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "The source, for example texlive-source, busytex or nixpkgs. For the release's own repository: OWNER/REPO.",
+            "type": "string"
+          },
+          "version": {
+            "description": "The upstream version, if the source has one.",
+            "type": "string"
+          },
+          "commit": {
+            "description": "The git commit, if the source is a repository. null for the own repository in a build that is not assembled.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "description": "The upstream source: the archive, or the repository at its commit.",
+            "type": "string"
+          },
+          "asset": {
+            "description": "The asset name of the attached archive (sources/<asset> in the assembled release).",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha512": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{128}$"
           }
+        },
+        "dependentRequired": {
+          "asset": [
+            "bytes",
+            "sha512"
+          ]
         }
       }
     },
     "files": {
-      "description": "Every other file of the release, by path, with its size and SHA-512. A file marked parent is not in this release: the app gets it from the parent release, at the same path.",
+      "description": "Every other file of the release (except release-notes.md and sources/), by path, with its size and SHA-512. A file marked parent is not in this release: the app gets it from the parent release, at the same path.",
       "type": "object",
       "propertyNames": {
         "type": "string",

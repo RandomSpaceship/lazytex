@@ -20,8 +20,9 @@ lazytex started in that repo, and its findings (the measurements behind the
 design) are there, in `docs/findings/`. Do not copy measurement results into
 this repo: link to them.
 
-Status (2026-10-19): everything builds and passes its tests. No release is
-published. The release workflow is not built.
+Status (2026-10-22): everything builds and passes its tests. No release is
+published. The release workflow (`.github/workflows/release.yml`) is not
+tested on GitHub yet. The first release is `v0.0.1`.
 
 ## Environment
 
@@ -44,14 +45,18 @@ published. The release workflow is not built.
   the exit code of `nix`, not of the pipe.
 - GitHub Actions runs `nix flake check` on each push
   (`.github/workflows/check.yml`), with our own outputs kept in the GitHub
-  Actions cache.
+  Actions cache. After a successful check of a pushed version tag,
+  `.github/workflows/release.yml` publishes its release. Tags:
+  `docs/formats.md`, "Release names".
 
 ## Commands
 
 - `nix flake check`: all tests (release checks, Node tests, browser test).
 - `nix build .#release`: lazytex's release files (tag `development`).
-- `nix run .#release-assemble -- TAG OUT`: the release files for a tag, checked.
-  It uses the `loads` records of all packages.
+- `nix run .#release-assemble -- TAG OUT`: the release tree for a tag in
+  `OUT/release/` (all files that go out), checked, and the same tree packed
+  as the assets of the GitHub release in `OUT/assets/`. It uses the `loads` records of all packages, and needs a
+  clean commit.
 - `nix build .#release-full`: the release files with the `loads` records of
   all packages (`.#loads-full`). CI builds it after `nix flake check`. It
   takes about 8 minutes on 16 threads, so local work uses `.#release`
@@ -74,7 +79,7 @@ published. The release workflow is not built.
    bundle and `pdflatex.fmt` (which that engine made) come from one build, in
    one versioned release with a manifest.
 3. **Manifest and SHA-512.** Every release has a `manifest.json` with each
-   file's size and SHA-512, and the upstream versions. All hashes are
+   file's size and SHA-512, and the sources of the build. All hashes are
    SHA-512.
 4. **Licence compliance.** lazytex's code is MIT. The engine is distributed
    under GPL-3.0-or-later (pdfTeX is GPL-2.0-or-later), so its corresponding
@@ -145,10 +150,10 @@ read. To add files, add a document.
 
 ## Open points
 
-- The release workflow: GitHub Actions builds the release, attaches the
-  engine's source archives (the TeX Live source, BusyTeX at its commit,
-  lazytex at the release tag), and publishes it. The asset names of the
-  files other than the package archives are not decided.
+- The release workflow is not tested on GitHub. Before `v0.0.1`, publish a
+  pre-release tag (for example `v0.0.1-rc.1`), examine it, and delete it.
+- A release workflow for child repos: a copy of `release.yml`, or a reusable
+  workflow.
 - The time of `.#release-full` in CI is not measured yet. If it comes near
   the job timeout (120 min), divide the packages into groups in matrix jobs.
 - The example page does not download packages. `example/README.md` has notes

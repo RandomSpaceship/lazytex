@@ -13,13 +13,21 @@
   };
 
   outputs =
-    { nixpkgs, busytex, ... }:
+    {
+      self,
+      nixpkgs,
+      busytex,
+      ...
+    }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       inherit (pkgs) lib;
 
-      engineBuild = pkgs.callPackage ./engine { busytexSrc = busytex; };
+      engineBuild = pkgs.callPackage ./engine {
+        busytexSrc = busytex;
+        nixpkgsRevision = nixpkgs.rev;
+      };
       texlive = pkgs.callPackage ./texlive { };
       library = pkgs.callPackage ./library { };
       lazytex = import ./nix/lib.nix {
@@ -91,6 +99,9 @@
           "bundle.tar" = bundle;
         };
         loads = [ loadsFull ];
+        # Only the assemble app uses the commit, so a new commit does not
+        # build the release again.
+        commit = self.rev or self.dirtyRev or null;
       };
 
       # The example child (example/): the tests run on its site.

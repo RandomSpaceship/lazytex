@@ -13,6 +13,8 @@ Apps read these files, so a change to them is an interface change.
 | Term | Meaning |
 |---|---|
 | Package | A TeX Live package, for example `pgfplots`. TeX Live distributes each package as one archive (`.tar.xz`). |
+| Index | The files `index/index-<layer>.json`: each TeX Live file that the engine can read, with its package and size, and where the app gets each package (`releaseArchive` for a hosted package, a mirror for the others). The app reads them at each compile and install. |
+| Manifest | `manifest.json`: each file of the release tree with its size and SHA-512, and the sources of the build. The app reads it once, at install or update, to verify the files and to make `formatKey()`. It does not describe the GitHub assets. |
 | Layer | One index file. A layer holds only the packages that the layers under it do not have. |
 | Scope | The set of files that the engine can see: a list of layers, the lowest first. lazytex's full scope is one layer, `index-full.json`. A child repo makes its own scopes, for example `medium` (`index-medium.json`) and full (`index-medium.json` and `index-full-extra.json`). |
 | Tree | A folder of TeX files in the engine's file system: `texmf-dist` (the packages) or `texmf-var` (generated files). |
@@ -26,12 +28,27 @@ All hashes are SHA-512, as 128 lowercase hex digits.
 
 ## The files of a release
 
+A release has three forms. Each part of this file tells which form it is
+about.
+
+| Form | What it is | Where it is |
+|---|---|---|
+| The release tree | All files of the release, at their paths. This is what goes out. The tables below list it. | `OUT/release/` of the assemble app. The Nix build (`nix build .#release`) gives the same tree, with the tag `development` and no `sources/`. |
+| The manifest | `manifest.json` in the tree: the size and SHA-512 of each file of the tree, and the sources of the build. It describes the tree, not the GitHub assets. | In the tree. |
+| The GitHub release | The tree, packed as flat assets for upload ("The GitHub release", below). It is a transport of the tree: unpack it, and you get the tree again. | `OUT/assets/` of the assemble app. |
+
+The app works with the tree. It verifies the tree against the manifest, and
+it finds each package archive through the index files (`releaseArchive`), not
+through the manifest.
+
 lazytex's release:
 
 | Path | Use |
 |---|---|
-| `manifest.json` | Every other file, with its size and SHA-512, and the upstream versions. |
+| `manifest.json` | Every other file, with its size and SHA-512, the TeX Live release of the TeX files, and the sources of the build. |
 | `NOTICE.html` | The licences of the release's parts, and where their source is. A child release has its own. |
+| `release-notes.md` | The text of the GitHub release: each source with its link, and the SHA-512 of each source archive. It is not an asset, and the manifest does not list it. A child release has its own. |
+| `sources/<asset>` | Only in the assembled release: the corresponding source of the engine (see "Sources"). The manifest lists these files in `sources`, not in `files`, because the app does not use them. |
 | `busytex/busytex.js`, `busytex/busytex.wasm` | The engine. |
 | `busytex/NOTICE.html`, `busytex/licenses/` | The engine's parts, their licences and their source, and the licence texts. |
 | `js/client.js`, `js/worker.js`, `js/types/`, `js/LICENSE.txt` | The library: the API for apps, the engine's worker, the TypeScript declarations, and lazytex's licence (MIT). See [`library/README.md`](../library/README.md). |
@@ -70,16 +87,51 @@ tests). It ships or downloads once the engine, the library, the bundles, the
 index files and the generated files. It downloads a TeX package only when a
 compile result asks for it (`needs`, see below), never during a compile.
 
-### Release names and asset names
+### Release names
 
 - The release name in `manifest.json` is the git tag of the GitHub release.
   The Nix build uses the tag `development`, which is never published. The
   release workflow writes the files again with the real tag (the assemble
   app: `nix run .#release-assemble -- TAG OUT` for lazytex), and checks them.
-- GitHub release assets cannot be in folders. The asset name of a package
-  archive is its file name, for example `pgf.r78116.tar.xz`. So the URL of
-  each archive is known before the upload. The asset names of the other files
-  are not decided yet.
+- A tag is `vMAJOR.MINOR.PATCH` ([Semantic Versioning](https://semver.org/)),
+  or that with a pre-release part, for example `v0.0.2-rc.1`. A tag with a
+  pre-release part becomes a pre-release on GitHub. lazytex's first release
+  is `v0.0.1`. The tag is not the `"version"` of a format: a format keeps its
+  version until a change that an old reader cannot read.
+
+### The GitHub release
+
+GitHub release assets cannot be in folders. `release/pack_assets.py` (in
+the assemble app) packs the release tree (`OUT/release/`) into flat assets
+(`OUT/assets/`):
+
+| Asset | Files of the tree |
+|---|---|
+| `release-files.tar.xz` | Every file that the manifest lists, at its path, except `archives/`, and `manifest.json`: the engine, the library, the bundles, the index files, the generated files and the notices. A bundle is in it as a plain tar file, because the engine reads it in that form. |
+| `manifest.json` | Also an asset of its own, so that a reader can get it without the tar. |
+| `<package>.r<revision>.tar.xz` | Each file of `archives/hosted/`, by its file name. The `releaseArchive` URLs in the index files name these assets. |
+| `<layer>.tar.xz` | Only in a child release: each offline archive (`archives/<layer>.tar.xz`), by its file name. |
+| `<asset>` | Each file of `sources/`, by its `asset` in `sources`, for example `texlive-source-2026.1.tar.gz`. |
+
+`release-notes.md` is not an asset: it is the text of the GitHub release.
+
+Each asset is compressed: the archives with xz, the source archives with
+gzip (as upstream gives them), and `release-files.tar.xz` with xz.
+
+An app that installs from the GitHub release:
+
+1. Download the `manifest.json` asset.
+2. Download `release-files.tar.xz`. Unpack only regular files at the paths
+   that the manifest lists (rules 2 and 3 of "Safety rules for unpacking"),
+   and verify each file against the manifest.
+3. For a child release, get the files that the manifest marks
+   `"parent": true` from the parent release in the same way.
+4. When a compile needs a hosted package, download its archive from the
+   `releaseArchive` URL in the index, and verify it against
+   `releaseArchive.sha512`.
+
+No file of the release gives the SHA-512 of `release-files.tar.xz`, because
+the tar holds the manifest. GitHub gives a digest for each asset.
 
 ## Index files
 
@@ -194,12 +246,23 @@ records the packages that the run opened:
   "version": 1,
   "release": "v1.0.0",
   "repository": "RandomSpaceship/lazytex",
-  "upstream": {
-    "busytex": "eb36aae169f7d71e70760a84ef80156b33c0f820",
-    "texliveSource": "https://github.com/TeX-Live/texlive-source/archive/refs/heads/tags/texlive-2026.1.tar.gz",
-    "emscripten": "5.0.6",
-    "texliveData": { "year": 2025, "revision": 78234, "frozen": true }
-  },
+  "texlive": { "year": 2025, "revision": 78234, "frozen": true },
+  "sources": [
+    {
+      "name": "texlive-source",
+      "version": "2026.1",
+      "url": "https://github.com/TeX-Live/texlive-source/archive/refs/heads/tags/texlive-2026.1.tar.gz",
+      "asset": "texlive-source-2026.1.tar.gz",
+      "bytes": 149426664,
+      "sha512": "…"
+    },
+    { "name": "busytex", "commit": "eb36aae169f7d71e70760a84ef80156b33c0f820", "url": "…", "asset": "busytex-eb36aae169f7.tar.gz", "bytes": 64366, "sha512": "…" },
+    { "name": "expat", "version": "2.5.0", "url": "…", "asset": "expat-2.5.0.tar.gz", "bytes": 719235, "sha512": "…" },
+    { "name": "fontconfig", "version": "2.13.96", "url": "…", "asset": "fontconfig-2.13.96.tar.gz", "bytes": 550958, "sha512": "…" },
+    { "name": "emscripten", "version": "5.0.6", "url": "https://github.com/emscripten-core/emscripten/tree/5.0.6" },
+    { "name": "nixpkgs", "commit": "8ce73368d1efd4d657e9064d29b144a52046b4e8", "url": "…" },
+    { "name": "RandomSpaceship/lazytex", "commit": "…", "url": "https://github.com/RandomSpaceship/lazytex/tree/…" }
+  ],
   "files": {
     "bundle.tar": { "bytes": 4935680, "sha512": "…" },
     "…": {}
@@ -224,13 +287,35 @@ that the app needs:
 }
 ```
 
-- `files` lists every file of the release except `manifest.json`. The app
-  verifies each file that it downloads against this list.
+- `files` lists every file of the release except `manifest.json`,
+  `release-notes.md` and `sources/`. The app verifies each file that it
+  downloads against this list.
+- `texlive` is the TeX Live release of the TeX files, as in the index files.
 - A file with `"parent": true` is not in the child release. The app gets it
   from the parent release (`parent.repository` and `parent.release`), at the
   same path.
 - `formatKey()` of the library reads the manifest at the app's base URL, so
   for a child, the child's manifest: it lists all files that the key needs.
+  The key uses only the SHA-512 values in `files`.
+
+### Sources
+
+`sources` lists the sources of the build, in this order:
+
+1. The engine's source archives: the TeX Live source, BusyTeX at its commit,
+   expat and fontconfig. Each has `asset`, `bytes` and `sha512`. lazytex's
+   assembled release has each one at `sources/<asset>`, and the GitHub
+   release has it as an asset with that name.
+2. The inputs that the release links to and does not attach: Emscripten
+   and nixpkgs.
+3. The release's own repository (`name` is `OWNER/REPO`) at `commit`. The
+   Nix build has `null` as the commit. The assembled release must have a
+   clean commit.
+
+`engine/default.nix` (`source-archives`) gives the first two groups. A child
+release has the parent's sources without change, and then its own
+repository. The child does not attach the archives: its `release-notes.md`
+links to the assets of the parent release.
 
 ## Archives
 

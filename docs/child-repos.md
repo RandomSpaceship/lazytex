@@ -38,7 +38,7 @@ your documents ──▶ traceBundle ──▶ packBundle (without lazytex's fil
     nixpkgs.follows = "lazytex/nixpkgs";
   };
 
-  outputs = { lazytex, nixpkgs, ... }:
+  outputs = { self, lazytex, nixpkgs, ... }:
     let
       system = "x86_64-linux";
       lt = lazytex.lib.${system};
@@ -93,6 +93,8 @@ your documents ──▶ traceBundle ──▶ packBundle (without lazytex's fil
         inherit index archives parent;
         bundles = { "bundle-my-app.tar" = bundle; };
         loads = [ loads ];
+        # The commit for the manifest's sources. Only the assemble app uses it.
+        commit = self.rev or self.dirtyRev or null;
       };
     in {
       packages.${system}.release = release;
@@ -130,19 +132,28 @@ code blocks) in a document here.
 | `packBundle { site, scope, trace, excludeBundles, withFormat }` | `bundle/make_bundle.py` | `bundle.tar` and `stats.json`. A child gives lazytex's `bundle.tar` in `excludeBundles` and `withFormat = false`. |
 | `makeArchives { index, scope, hosted, bundles, offline }` | `archives/make_archives.py` | The archives of the hosted packages and their dependencies, and of the bundles' packages, without the packages that lazytex hosts. First, it checks the runfiles of each package of the scope. An archive cannot hold the runfiles in `tlpkg/` or at the root of TeX Live. The build stops if an LPPL package has such runfiles (`docs/design.md`, "Licences"). |
 | `measureLoads { site, scope, packages }` | `index/measure_loads.cjs` | The `loads` records of the packages of `archives.json` that have none. |
-| `makeRelease { repository, index, archives, bundles, loads, parent }` | `release/make_release.py` | The release (tag `development`), and `passthru.assemble`, the tool of the release workflow. |
-| `checkRelease { release, parent }` | `release/check_release.py` | A flake check of the release. With `parent`, it also checks each copied entry against lazytex's. |
+| `makeRelease { repository, index, archives, bundles, loads, parent, commit }` | `release/make_release.py` | The release (tag `development`), and `passthru.assemble`, the tool of the release workflow (with `release/pack_assets.py`). |
+| `checkRelease { release, parent }` | `release/check_release.py`, `release/pack_assets.py` | A flake check of the release and of its assets. With `parent`, it also checks each copied entry against lazytex's. |
 | `appSite { release, parent, tree }` | | What the app serves: both releases in one directory (for tests). |
 
 ## Publish a release
 
 The Nix build uses the tag `development`. To publish:
 
-1. Choose the tag, for example `v1.2.0`.
-2. Run `nix run .#release-assemble -- v1.2.0 out/`. It writes the release
-   files with the real tag in the archive URLs, and checks them.
-3. Make a GitHub release with that tag, and upload the files of `out/`. The
-   asset name of each archive is its file name.
+1. Choose the tag, for example `v1.2.0` (`docs/formats.md`, "Release
+   names").
+2. Commit all changes. The check of the assembled release needs a clean
+   commit.
+3. Run `nix run .#release-assemble -- v1.2.0 out/`. It writes the release
+   tree with the real tag in the archive URLs to `out/release/`, and checks
+   it. Then it packs the tree into the assets of the GitHub release, in
+   `out/assets/` (`docs/formats.md`, "The GitHub release").
+4. Make a GitHub release with that tag, with `out/release/release-notes.md`
+   as its text, and upload the files of `out/assets/`. The notes link to the
+   engine's source archives in lazytex's release.
+
+lazytex's `.github/workflows/release.yml` does steps 3 and 4 for a pushed
+tag. A child can use a copy of it.
 
 Do not upload the files that the manifest marks `"parent": true`: the app
 gets them from lazytex's release.
