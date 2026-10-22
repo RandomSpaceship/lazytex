@@ -141,8 +141,9 @@ read. To add files, add a document.
   engine's source archives (the TeX Live source, BusyTeX at its commit,
   lazytex at the release tag), and publishes it. The asset names of the
   files other than the package archives are not decided.
-- Measure the `loads` records of all packages, not only the hosted ones
-  (about 10 to 30 minutes).
+- Measure the `loads` records of all packages, not only the hosted ones, in
+  CI only. A local run outside Nix took 7.5 minutes with 16 workers
+  (2026-10-22). Local builds keep the hosted packages only.
 - The example page does not download packages. `example/README.md` has notes
   on how a web page can do it.
 - A move to current TeX Live (README, last section): not planned.

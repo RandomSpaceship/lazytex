@@ -22,7 +22,10 @@
 // Writes:
 //   <out>/loads.json   {name: {loads: [...], files: {path: [...]}}}; files has
 //                      only the entry files whose set differs from loads
-//   <out>/stats.json   counts, and each run that did not count, with the reason
+//   <out>/stats.json   counts, each run that did not count, with the reason,
+//                      and the 20 slowest runs
+// and every 10 s a progress line, with each run that takes longer than 20 s.
+// A run that takes longer than 90 s is stopped, and counts as failed.
 //
 //   node measure_loads.cjs <site> <scope> <packages.json> <out>
 // <site> has busytex/, the index files and their generated files, and
@@ -82,10 +85,12 @@ function packageSet(name, runs, setOf) {
   return JSON.parse(bestKey);
 }
 
-// A worker: compile each job with a fresh engine, so that each run's list
-// holds every file that it reads.
+// A worker: compile each job that the main thread sends with a fresh engine,
+// so that each run's list holds every file that it reads. It asks for its
+// first job when pdflatex.fmt is ready, and for the next one with each
+// result. null means that no jobs are left.
 async function runWorker() {
-  const { site, scopePaths, jobs } = workerData;
+  const { site, scopePaths } = workerData;
   const { scope } = loadSite(site, scopePaths);
   const busytex = require(path.join(site, 'busytex', 'busytex.js'));
   const wasmModule = new WebAssembly.Module(fs.readFileSync(path.join(site, 'busytex', 'busytex.wasm')));
@@ -99,7 +104,8 @@ async function runWorker() {
   const baseBuild = builder.buildFormat();
   if (baseBuild.exitCode !== 0 || !baseBuild.fmt) throw new Error(`pdflatex.fmt failed (exit ${baseBuild.exitCode}, ${baseBuild.crashed})\n${(baseBuild.log || baseBuild.stdout + baseBuild.stderr).slice(-2000)}`);
   const distRoot = scope.indexes[0].trees['texmf-dist'];
-  for (const job of jobs) {
+  parentPort.on('message', async (job) => {
+    if (!job) process.exit(0);
     const engine = await newEngine();
     engine.loadFormat(baseBuild.fmt, 'pdflatex');
     const result = engine.compile(job.source);
@@ -112,7 +118,8 @@ async function runWorker() {
       failure = 'the run did not read this file (another file has its name)';
     }
     parentPort.postMessage({ ...job, failure, packagesRead: result.packagesRead, runMs: result.runMs });
-  }
+  });
+  parentPort.postMessage(null);
 }
 
 async function main() {
@@ -135,12 +142,66 @@ async function main() {
   const startTime = performance.now();
   const workerCount = Math.max(1, Math.min(jobs.length, Number(process.env.NIX_BUILD_CORES) || os.availableParallelism()));
   const results = [];
-  await Promise.all(Array.from({ length: workerCount }, (_, workerNumber) => new Promise((resolve, reject) => {
-    const worker = new Worker(__filename, { workerData: { site, scopePaths, jobs: jobs.filter((_, i) => i % workerCount === workerNumber) } });
-    worker.on('message', (result) => results.push(result));
-    worker.on('error', reject);
-    worker.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`worker exited with ${code}`))));
-  })));
+  // The workers take the jobs in order from one queue. The run that each
+  // worker is on, or null between runs and after its last.
+  let nextJobIndex = 0;
+  const workers = new Array(workerCount);
+  const currentRuns = new Array(workerCount).fill(null);
+  // A compile cannot stop from inside its worker, so the main thread stops
+  // the worker of a run that takes too long, counts the run as failed, and
+  // starts a new worker for the next jobs. The slowest runs take a few
+  // seconds.
+  const runTimeLimitMs = 90000;
+  const slowRunMs = 20000;
+  const stoppedWorkers = new Set();
+  const formatSeconds = (milliseconds) => `${Math.floor(milliseconds / 60000)}m${String(Math.floor(milliseconds / 1000) % 60).padStart(2, '0')}s`;
+  await new Promise((resolve, reject) => {
+    let runningWorkerCount = 0;
+    const startWorker = (workerNumber) => {
+      runningWorkerCount += 1;
+      const worker = new Worker(__filename, { workerData: { site, scopePaths } });
+      workers[workerNumber] = worker;
+      // A message is a result, or null when the worker is ready for its first job.
+      worker.on('message', (result) => {
+        if (stoppedWorkers.has(worker)) return;
+        if (result) results.push(result);
+        const job = nextJobIndex < jobs.length ? jobs[nextJobIndex++] : null;
+        currentRuns[workerNumber] = job && { ...job, startedAt: performance.now() };
+        worker.postMessage(job);
+      });
+      worker.on('error', reject);
+      worker.on('exit', (code) => {
+        runningWorkerCount -= 1;
+        if (stoppedWorkers.has(worker)) startWorker(workerNumber);
+        else if (code !== 0) reject(new Error(`worker exited with ${code}`));
+        if (runningWorkerCount === 0) {
+          clearInterval(progressTimer);
+          resolve();
+        }
+      });
+    };
+    for (let workerNumber = 0; workerNumber < workerCount; workerNumber++) startWorker(workerNumber);
+    // Every 10 s: the progress, each slow run, and the stop of each run over the limit.
+    const progressTimer = setInterval(() => {
+      const now = performance.now();
+      const failedCount = results.filter((result) => result.failure).length;
+      const busyCount = currentRuns.filter(Boolean).length;
+      console.log(`${results.length} of ${jobs.length} runs, ${failedCount} failed, ${busyCount} workers busy, ${formatSeconds(now - startTime)}`);
+      currentRuns.forEach((run, workerNumber) => {
+        if (!run || now - run.startedAt <= slowRunMs) return;
+        const { source, startedAt, ...job } = run;
+        if (now - startedAt <= runTimeLimitMs) {
+          console.log(`  slow: worker ${workerNumber}, ${job.name}: ${job.relativePath}, ${formatSeconds(now - startedAt)}`);
+          return;
+        }
+        console.log(`  stopped: worker ${workerNumber}, ${job.name}: ${job.relativePath}, over ${runTimeLimitMs / 1000} s`);
+        results.push({ ...job, failure: `stopped: no end after ${runTimeLimitMs / 1000} s`, packagesRead: [], runMs: now - startedAt });
+        currentRuns[workerNumber] = null;
+        stoppedWorkers.add(workers[workerNumber]);
+        workers[workerNumber].terminate();
+      });
+    }, 10000);
+  });
 
   const loads = {};
   const unmeasured = [];
@@ -175,6 +236,8 @@ async function main() {
     wallMs: Math.round(performance.now() - startTime),
     runMsTotal: Math.round(results.reduce((total, result) => total + result.runMs, 0)),
     loadsBytes: Buffer.byteLength(JSON.stringify(loads)),
+    slowest: results.slice().sort((a, b) => b.runMs - a.runMs).slice(0, 20)
+      .map(({ name, relativePath, runMs, failure }) => ({ name, file: relativePath, runMs: Math.round(runMs), failure })),
     failed: failed.map(({ name, relativePath, failure }) => ({ name, file: relativePath, failure })),
   };
   fs.mkdirSync(outputDirectory, { recursive: true });

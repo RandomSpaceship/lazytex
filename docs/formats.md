@@ -168,6 +168,9 @@ records the packages that the run opened:
 - A run counts only if it has no error and reads the entry file itself.
   Obsolete files, LuaTeX-only libraries and files of the same name in another
   package do not count.
+- The measurement stops a run after 90 s, and the run does not count. For
+  example, the plain TeX files of `tugboat-plain` do not stop in LaTeX. The
+  slowest run that ends takes about 10 s.
 - The most frequent set of a package is its `loads`. On a tie, the set of its
   main file (`<name>.sty`, then `<name>.cls`) is used. Each entry file with a
   different set gets its own record in `files`.
