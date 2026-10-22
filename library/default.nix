@@ -29,9 +29,13 @@ runCommand "lazytex-library"
     cd source
     tsc --noEmit -p .
     mkdir -p $out
-    esbuild src/client.ts --bundle --format=esm --target=es2022 --outfile=$out/client.js
-    esbuild src/worker.ts --bundle --format=iife --target=es2022 --outfile=$out/worker.js
-    esbuild src/core.ts --bundle --platform=neutral --format=cjs --target=es2022 --outfile=$out/core.cjs
+    # The build that client.js and worker.js compare at each start
+    # (protocol.ts): the hash of the store path of the sources.
+    build=$(basename ${./src} | cut -d- -f1 | cut -c1-12)
+    define="--define:LIBRARY_BUILD=\"$build\""
+    esbuild src/client.ts --bundle --format=esm --target=es2022 "$define" --outfile=$out/client.js
+    esbuild src/worker.ts --bundle --format=iife --target=es2022 "$define" --outfile=$out/worker.js
+    esbuild src/core.ts --bundle --platform=neutral --format=cjs --target=es2022 "$define" --outfile=$out/core.cjs
     tsc -p . --emitDeclarationOnly --outDir $out/types
     cp ${../LICENSE.md} $out/LICENSE.txt
   ''

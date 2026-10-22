@@ -3,19 +3,57 @@
 import type { Outcome } from './analysis';
 import type { Operation } from './scan';
 
-export interface Progress {
-  // engine: busytex.js and busytex.wasm; index: the index files (also the
-  // ones that findScope() loads); bundle: the bundles; files: the WebAssembly
-  // instance and the file nodes. Each stage reports its start (loaded 0,
-  // total null). The index and bundle downloads also report their end. The
-  // downloads of engine, index and bundle run at the same time, so their
-  // reports can mix. A scope change reports only what it must load again.
-  stage: 'engine' | 'index' | 'bundle' | 'files';
-  // Bytes (characters for the index files).
+// The build of the library: library/default.nix sets it (esbuild --define)
+// from the hash of the sources. client.js and worker.js must come from one
+// build, but a cache can keep an old worker.js, so each start compares the
+// two.
+declare const LIBRARY_BUILD: string;
+export const libraryBuild: string = typeof LIBRARY_BUILD === 'string' ? LIBRARY_BUILD : 'unknown';
+
+export const buildMismatchError = (clientBuild: string, workerBuild: string | undefined) =>
+  `client.js (build ${clientBuild}) and worker.js (build ${workerBuild ?? 'older, without a build'}) come from different builds: ` +
+  'load both from one release, and reload the page without the cache';
+
+// A download of the worker: busytex.wasm (stage 'engine'), an index file
+// (also one that findScope() loads), or a bundle. Each download reports its
+// start (loaded 0), its bytes while they arrive, and its end (loaded =
+// total). The downloads run at the same time, so their reports can mix:
+// `file` tells them apart. A scope change reports only what it must load
+// again.
+export interface DownloadProgress {
+  stage: 'engine' | 'index' | 'bundle';
+  // The path below the base URL, for example 'bundle.tar'.
+  file: string;
   loaded: number;
-  // The same unit, or null if not known.
+  // Bytes, or null if not known (the server sent no Content-Length, or
+  // compressed the response). The end report always has it.
   total: number | null;
 }
+
+// The WebAssembly instance and the file nodes of a start or scope change.
+export interface FilesProgress {
+  stage: 'files';
+}
+
+// The end of a start or scope change: the engine is ready.
+export interface StartedProgress {
+  stage: 'started';
+}
+
+// A file that a compile or a format build read with a request, while TeX
+// runs. Nobody knows before the run which files TeX reads, so there is no
+// total.
+export interface RunProgress {
+  stage: 'run';
+  // The path below the base URL, for example
+  // 'texlive/texmf-dist/tex/latex/tools/calc.sty'.
+  file: string;
+  // The files of the run up to now, and their bytes.
+  filesRead: number;
+  bytesRead: number;
+}
+
+export type Progress = DownloadProgress | FilesProgress | StartedProgress | RunProgress;
 
 // A scope: the paths of its index files below the base URL, the lowest layer
 // first, for example ['index/index-medium.json', 'index/index-full-extra.json'].
@@ -27,9 +65,13 @@ export interface InitArguments {
   // The paths of the bundles below the base URL, the lowest layer first.
   bundles: string[];
   installedPackages: string[];
+  // The client's libraryBuild.
+  build: string;
 }
 
 export interface InitResult {
+  // The worker's libraryBuild.
+  build: string;
   scope: Scope;
   files: number;
   timings: Record<string, number>;

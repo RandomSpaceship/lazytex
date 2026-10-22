@@ -14,6 +14,12 @@ release has it in `js/` ([`docs/formats.md`](../docs/formats.md)).
 `nix build .#library` checks the types with `tsc` and makes the files with
 esbuild.
 
+`client.js` and `worker.js` must come from one build. The build puts a build
+ID (from the hash of the sources) into both files, and each start of the
+worker compares the two. If a cache keeps an old `worker.js`, the start fails
+with an error that says "come from different builds", and the app does not
+get wrong results from a mixed pair.
+
 ## Use in an app
 
 ```ts
@@ -30,7 +36,7 @@ const tex = createTexEngine({
   scope: savedScope ?? MEDIUM,                // necessary: the library has no default scope
   bundles: ['bundle.tar', 'bundle-my-app.tar'], // default ['bundle.tar']: lazytex's bundle only
   installedPackages: await listPackageCache(),
-  onProgress: ({ stage, loaded, total }) => showStartProgress(stage, loaded, total),
+  onProgress: (progress) => showProgress(progress),   // see "Progress"
 });
 
 await tex.start();   // optional: start early, for example when the user edits a LaTeX block
@@ -60,7 +66,7 @@ for (;;) {
     }
     // No scope has them: a wrong name, or a package that TeX Live does not have.
   }
-  showErrors(result);  // 'error' and 'needs' (with line numbers), 'timeout' or 'crashed'
+  showErrors(result);  // 'error' and 'needs' (with line numbers), 'timeout', 'crashed' or 'stopped'
   break;
 }
 ```
@@ -91,7 +97,7 @@ The worker reads TeX files with synchronous `GET` requests (`responseType`
 
 | Method | What it does |
 |---|---|
-| `start()` | Starts the worker, if it is not running. Reports progress with `onProgress`. |
+| `start()` | Starts the worker, if it is not running. Reports progress with `onProgress` (see "Progress"). |
 | `compile(source, { format, timeoutMs, scan })` | Compiles a document. `format` is `'pdflatex'` (default) or a format that `buildFormat()` or `loadFormat()` gave. With `scan` (default `true`), the worker scans the preamble first. If the scan finds needs, the result is that `needs`, and the engine does not run. |
 | `scan(source)` | The scan of `compile()`, without a compile: `ok` or `needs`, and `operations` (see "The scan"). |
 | `buildFormat(name, source, { mylatexformat, timeoutMs, scan })` | Builds a format on top of `pdflatex.fmt`. With `mylatexformat`, `source` is a document whose preamble goes into the format. Without it, `source` must end with `\dump`. `scan` as for `compile()`. |
@@ -101,11 +107,35 @@ The worker reads TeX files with synchronous `GET` requests (`responseType`
 | `findScope(files, candidates)` | The first of the candidate scopes (smallest first) that has all the files, as `{ scope, files }`: `files` is empty. If no candidate has them all, `scope` is `null`, and `files` has the files that no candidate has. A name also matches its other forms (for example `pgflibraryX.code.tex` for `tikzlibraryX.code.tex`). The worker loads a candidate's index files only when it gets to it. |
 | `setScope(scope)` | Changes the scope. The worker keeps the engine file, the bundles and the index files that it has (also the ones that `findScope()` loaded), and makes a new engine. It loads only the index files that it does not have. |
 | `scope` | The current scope. |
-| `stop()` | Stops the worker. The next operation starts a new one. |
+| `stop()` | Stops the worker at once, also during a compile. The result of that compile is `stopped`. The next operation starts a new one. |
 
 The module also exports `normalizeSource(source)`, a synchronous function
 (see "The source normalizer"), for the app's own cache keys (for example of
 SVGs made from the PDF).
+
+### Progress
+
+`onProgress` gets a `Progress`: one of four types, which `stage` tells
+apart (a discriminated union). The module exports each type.
+
+| Type | `stage` | When | Other fields |
+|---|---|---|---|
+| `DownloadProgress` | `engine`, `index`, `bundle` | A download of the worker: `busytex.wasm`, an index file (at a start, `setScope()` or `findScope()`, only if the worker does not have it), a bundle. | `file`: the path below `baseUrl`. `loaded`, `total`: bytes. |
+| `FilesProgress` | `files` | A start or `setScope()` makes the engine instance and the file nodes. | None. |
+| `StartedProgress` | `started` | The end of a start or `setScope()`: the engine is ready. It also comes for a start in a compile, for example after `stop()`. | None. |
+| `RunProgress` | `run` | A compile or a format build read a file with a request. One report for each file. | `file`: the path below `baseUrl`. `filesRead`, `bytesRead`: the files of the run up to now, and their bytes. |
+
+Each download reports its start (`loaded` 0), its bytes while they come
+in, and its end (`loaded` and `total` the same). `total` is `null` until the
+end if the server sent no `Content-Length`, or compressed the response. The
+release's `manifest.json` has the size of each file (`bytes`), as an
+alternative for the total. The downloads run at the same time, so use
+`file` to keep them apart.
+
+The `run` reports come while TeX runs. Nobody knows before the run which
+files TeX reads, so they have no total. The files of the bundles and of a
+format do not need a request, so a run with few reports is normal. The last
+report agrees with the result's `filesLoaded` and `bytesLoaded`.
 
 ### Formats
 
@@ -141,8 +171,9 @@ Only `stop()` acts at once, also during a compile.
 | `error` | `errors`: `{ message, line, context }`. `line` is the line of the document, or `null`. A file of an installed package that the worker cannot read (for example a `404`, or a size that is not the size in the index) gives an `error` with the message `could not read <path>: <reason>`, also if TeX made a PDF. |
 | `timeout` | `timeoutMs`. The worker was stopped. |
 | `crashed` | `message`. The engine aborted, and the worker was stopped. |
+| `stopped` | None. The app called `stop()` during the compile, or during the worker start before it. |
 
-The results of a run (all except `timeout` and `crashed`) also have `log`,
+The results of a run (all except `timeout`, `crashed` and `stopped`) also have `log`,
 `runMs`, and `filesLoaded` and `bytesLoaded` (the files that the run read
 with a request). The results of `compile()` also have `packagesRead`: the
 packages that the run read. On `ok`, the app can find the mirror packages
@@ -172,7 +203,7 @@ that have files in a bundle. A `scan` or `log` package is always there,
 also a bundle package: a bundle has only some of its files. The scan does
 not ask for a file that a bundle has.
 
-After `timeout` or `crashed`, the next operation starts a new worker with
+After `timeout`, `crashed` or `stopped`, the next operation starts a new worker with
 the same scope, packages and formats.
 
 An operation rejects its promise if the worker cannot start (for example, a
@@ -243,5 +274,5 @@ nothing.
   the example, the bundles, installs in rounds, scopes, the `needs` result,
   errors, copied text, formats, the scan and the normalizer.
 - `tests/browser/` (headless Chromium, check `browser`): the client with the
-  real worker: start and progress, two bundles, installs, formats, timeout
-  and restart, scope change.
+  real worker: start and progress, run progress, two bundles, installs,
+  formats, timeout and restart, stop, scope change.

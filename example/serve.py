@@ -14,6 +14,7 @@ first, then in SITE.
 """
 
 import argparse
+import hashlib
 import http.server
 import os
 
@@ -27,7 +28,33 @@ def main():
 
     class Handler(http.server.SimpleHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
-        extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".js": "text/javascript", ".wasm": "application/wasm"}
+        extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm"}
+
+        # The page and the site change at each build, but every file in the
+        # Nix store has the same modification time (1970), so an
+        # If-Modified-Since check would keep a stale worker.js. The browser
+        # checks each file (no-cache) with an ETag of the file's real path
+        # (a new store path after each build), its time and its size.
+        def send_head(self):
+            self.etag = None
+            file_path = self.translate_path(self.path)
+            if os.path.isfile(file_path):
+                stat = os.stat(file_path)
+                key = f"{os.path.realpath(file_path)}:{stat.st_mtime_ns}:{stat.st_size}"
+                self.etag = '"' + hashlib.sha256(key.encode()).hexdigest()[:32] + '"'
+                if self.headers.get("If-None-Match") == self.etag:
+                    self.send_response(http.HTTPStatus.NOT_MODIFIED)
+                    self.end_headers()
+                    return None
+            # Only the ETag decides.
+            del self.headers["If-Modified-Since"]
+            return super().send_head()
+
+        def end_headers(self):
+            self.send_header("Cache-Control", "no-cache")
+            if getattr(self, "etag", None):
+                self.send_header("ETag", self.etag)
+            super().end_headers()
 
         def translate_path(self, path):
             for root in (args.page, args.site):

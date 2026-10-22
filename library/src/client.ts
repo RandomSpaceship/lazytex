@@ -18,9 +18,9 @@
 import type { NeedReason, Outcome, PackageNeed } from './analysis';
 import { normalizeSource } from './normalize';
 import type { Operation } from './scan';
-import type { FindScopeResult, InitResult, Progress, ScanResult, Scope, WorkerCompileResult, WorkerFormatResult, WorkerMessage, WorkerRequest } from './protocol';
+import { buildMismatchError, libraryBuild, type DownloadProgress, type FilesProgress, type FindScopeResult, type InitResult, type Progress, type RunProgress, type StartedProgress, type ScanResult, type Scope, type WorkerCompileResult, type WorkerFormatResult, type WorkerMessage, type WorkerRequest } from './protocol';
 
-export type { FindScopeResult, NeedReason, Operation, Outcome, PackageNeed, Progress, ScanResult, Scope };
+export type { DownloadProgress, FilesProgress, FindScopeResult, NeedReason, Operation, Outcome, PackageNeed, Progress, RunProgress, ScanResult, Scope, StartedProgress };
 export type { TexError } from './log';
 export { normalizeSource } from './normalize';
 
@@ -44,14 +44,18 @@ export interface TexEngineOptions {
   installedPackages?: string[];
   // The default time limit of a compile or format build. Default: 60 s.
   timeoutMs?: number;
-  // Progress of a worker start (also after setScope).
+  // Progress of a worker start (also after setScope() and findScope()), and
+  // the files that a compile or a format build reads (stage 'run').
   onProgress?: (progress: Progress) => void;
 }
 
-// 'timeout' and 'crashed' stop the worker; the next operation starts a new one.
+// The worker stopped: after the time limit ('timeout'), after an engine
+// abort ('crashed'), or because the app called stop() ('stopped'). The next
+// operation starts a new one.
 type WorkerStoppedResult =
   | { status: 'timeout'; timeoutMs: number }
-  | { status: 'crashed'; message: string };
+  | { status: 'crashed'; message: string }
+  | { status: 'stopped' };
 
 // The result of a compile. 'ok' has the PDF.
 export type CompileResult = WorkerCompileResult | WorkerStoppedResult;
@@ -60,7 +64,7 @@ export type CompileResult = WorkerCompileResult | WorkerStoppedResult;
 export type FormatResult = WorkerFormatResult | WorkerStoppedResult;
 
 class WorkerStopped extends Error {
-  constructor(readonly reason: 'timeout' | 'crashed', message: string) {
+  constructor(readonly reason: WorkerStoppedResult['status'], message: string) {
     super(message);
   }
 }
@@ -104,7 +108,6 @@ export class TexEngine {
   // if the user refused a download that the scan asked for.
   compile(source: string, { format = 'pdflatex', timeoutMs, scan = true }: { format?: string; timeoutMs?: number; scan?: boolean } = {}): Promise<CompileResult> {
     return this.enqueue(async () => {
-      await this.ensureStarted();
       return this.runWithLimit<WorkerCompileResult>({ command: 'compile', args: { source, formatName: format, scan } }, timeoutMs);
     });
   }
@@ -126,7 +129,6 @@ export class TexEngine {
   // `scan` as for compile(). The scan reads up to \begin{document} or \dump.
   buildFormat(name: string, source: string, { mylatexformat = false, timeoutMs, scan = true }: { mylatexformat?: boolean; timeoutMs?: number; scan?: boolean } = {}): Promise<FormatResult> {
     return this.enqueue(async () => {
-      await this.ensureStarted();
       const result = await this.runWithLimit<WorkerFormatResult>({ command: 'buildFormat', args: { formatName: name, source, mylatexformat, scan } }, timeoutMs);
       if (result.status === 'ok') this.formats.set(name, result.fmt.slice());
       return result;
@@ -214,10 +216,10 @@ export class TexEngine {
     return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 
-  // Stop the worker now, also during a compile. The next operation starts a
-  // new one.
+  // Stop the worker now, also during a compile: the result of that compile
+  // is 'stopped'. The next operation starts a new one.
   stop(): void {
-    this.stopWorker();
+    this.stopWorker(new WorkerStopped('stopped', 'stop() stopped the worker'));
   }
 
   // Only for operations in the queue (an operation that called start() would
@@ -248,6 +250,12 @@ export class TexEngine {
         this.options.onProgress?.(data.progress);
         return;
       }
+      // For example a cached worker.js of an older release.
+      const type: string = data.type;
+      if (type !== 'result' && type !== 'error') {
+        this.failWorker(new Error('worker.js sent a message that client.js does not know: use worker.js and client.js of the same release'));
+        return;
+      }
       const waiting = this.pending.get(data.id);
       if (!waiting) return;
       this.pending.delete(data.id);
@@ -268,10 +276,11 @@ export class TexEngine {
     try {
       const result = (await this.request({
         command: 'init',
-        args: { baseUrl: this.options.baseUrl, scope: [...this.currentScope], bundles: this.bundles, installedPackages: [...this.installed] },
+        args: { baseUrl: this.options.baseUrl, scope: [...this.currentScope], bundles: this.bundles, installedPackages: [...this.installed], build: libraryBuild },
       })) as InitResult;
+      if (result.build !== libraryBuild) throw new Error(buildMismatchError(libraryBuild, result.build));
       for (const [formatName, bytes] of this.formats) {
-        if (this.worker !== worker) throw new WorkerStopped('crashed', 'the worker was stopped');
+        if (this.worker !== worker) throw new WorkerStopped('stopped', 'stop() stopped the worker');
         await this.request({ command: 'loadFormat', args: { formatName, bytes: bytes.slice() } });
       }
       return result;
@@ -293,7 +302,16 @@ export class TexEngine {
     });
   }
 
+  // Start the worker if necessary, and run a compile or a format build. A
+  // stop() during the start also gives 'stopped'. Other failures of the
+  // start reject. The time limit starts after the start.
   private async runWithLimit<T>(message: Omit<WorkerRequest, 'id'>, timeoutMs = this.options.timeoutMs ?? 60_000): Promise<T | WorkerStoppedResult> {
+    try {
+      await this.ensureStarted();
+    } catch (error) {
+      if (error instanceof WorkerStopped && error.reason === 'stopped') return { status: 'stopped' };
+      throw error;
+    }
     let timer: ReturnType<typeof setTimeout> | undefined;
     const limit = new Promise<never>((_, reject) => {
       // TeX runs synchronously in the worker, so the only way to stop a run
@@ -305,7 +323,9 @@ export class TexEngine {
     } catch (error) {
       if (!(error instanceof WorkerStopped)) throw error;
       this.stopWorker();
-      return error.reason === 'timeout' ? { status: 'timeout', timeoutMs } : { status: 'crashed', message: error.message };
+      if (error.reason === 'timeout') return { status: 'timeout', timeoutMs };
+      if (error.reason === 'stopped') return { status: 'stopped' };
+      return { status: 'crashed', message: error.message };
     } finally {
       clearTimeout(timer);
     }
@@ -317,12 +337,12 @@ export class TexEngine {
     this.stopWorker();
   }
 
-  private stopWorker() {
+  // The operations that wait for this worker reject with `reason`.
+  private stopWorker(reason = new WorkerStopped('crashed', 'the worker was stopped')) {
     this.worker?.terminate();
     this.worker = null;
     this.starting = null;
-    const stopped = new WorkerStopped('crashed', 'the worker was stopped');
-    for (const waiting of this.pending.values()) waiting.reject(stopped);
+    for (const waiting of this.pending.values()) waiting.reject(reason);
     this.pending.clear();
   }
 }

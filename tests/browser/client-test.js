@@ -63,12 +63,17 @@ async function run() {
 
   const started = await engine.start();
   const stages = new Set(progress.map(({ stage }) => stage));
-  check('start: reports progress for the engine, the index and the bundle', ['engine', 'index', 'bundle', 'files'].every((stage) => stages.has(stage)), [...stages]);
+  check('start: reports progress for the engine, the index and the bundle', ['engine', 'index', 'bundle', 'files', 'started'].every((stage) => stages.has(stage)), [...stages]);
+  check('start: the last report is started', progress[progress.length - 1].stage === 'started', progress[progress.length - 1]);
   const bundleReports = progress.filter(({ stage }) => stage === 'bundle');
   const lastBundle = bundleReports[bundleReports.length - 1];
   check('start: the bundle progress ends at its total', lastBundle && lastBundle.total && lastBundle.loaded === lastBundle.total, lastBundle);
   check('start: the scope that the app gave', sameScope(started.scope, MEDIUM) && sameScope(engine.scope, MEDIUM), started);
-  check('start: both bundles are downloaded', bundleReports.filter(({ total }) => total).length === BUNDLES.length, bundleReports);
+  check('start: both bundles are downloaded', sameScope(bundleReports.filter(({ loaded, total }) => loaded === total).map(({ file }) => file).sort(), [...BUNDLES].sort()), bundleReports);
+  check('start: each bundle report names its file', bundleReports.every(({ file }) => BUNDLES.includes(file)), bundleReports);
+  const wasmReports = progress.filter(({ file }) => file === 'busytex/busytex.wasm');
+  const lastWasm = wasmReports[wasmReports.length - 1];
+  check('start: the engine download reports its bytes', lastWasm && lastWasm.loaded > 1e6 && lastWasm.loaded === lastWasm.total, wasmReports);
 
   const minimal = await engine.compile(MINIMAL);
   check('compile: a bundle document gives a PDF', minimal.status === 'ok' && isPdf(minimal.pdf), brief(minimal));
@@ -86,8 +91,13 @@ async function run() {
   const logNeeds = await engine.compile(TIKZ_CD, { scan: false });
   check('needs: without the scan, the log names the file', logNeeds.status === 'needs'
     && JSON.stringify(logNeeds.packages) === JSON.stringify([{ name: 'tikz-cd', reason: 'log', files: ['tikz-cd.sty'] }]), brief(logNeeds));
+  progress.length = 0;
   const { result: tikzCd } = await compileInRounds(engine, TIKZ_CD);
   check('needs: after the install, it compiles', tikzCd.status === 'ok' && isPdf(tikzCd.pdf), brief(tikzCd));
+  const runReports = progress.filter(({ stage }) => stage === 'run');
+  const lastRun = runReports[runReports.length - 1];
+  check('progress: the run reports each file that it reads', lastRun && lastRun.filesRead === tikzCd.filesLoaded && lastRun.bytesRead === tikzCd.bytesLoaded
+    && runReports.some(({ file }) => file.endsWith('/tikz-cd.sty')), { last: lastRun, filesLoaded: tikzCd.filesLoaded, bytesLoaded: tikzCd.bytesLoaded });
 
   const broken = await engine.compile(BROKEN);
   check('error: message and line', broken.status === 'error' && /Undefined control sequence/.test(broken.errors[0].message) && broken.errors[0].line === 4, broken.errors);
@@ -112,6 +122,12 @@ async function run() {
   check('timeout: the next compile starts a new worker, with the format loaded again', afterTimeout.status === 'ok' && isPdf(afterTimeout.pdf), brief(afterTimeout));
   const tikzCdAgain = await engine.compile(TIKZ_CD);
   check('timeout: the new worker has the installed packages', tikzCdAgain.status === 'ok', brief(tikzCdAgain));
+  const stopping = engine.compile(LOOP);
+  setTimeout(() => engine.stop(), 1000);
+  const stopped = await stopping;
+  check('stop: stops a running compile at once', stopped.status === 'stopped', stopped);
+  const afterStop = await engine.compile(MINIMAL, { format: 'tikz' });
+  check('stop: the next compile starts a new worker', afterStop.status === 'ok' && isPdf(afterStop.pdf), brief(afterStop));
 
   progress.length = 0;
   const scopeNeed = await engine.compile(chessboard);
@@ -126,7 +142,7 @@ async function run() {
   progress.length = 0;
   const switched = await engine.setScope(FULL);
   check('setScope: the same worker changes to the full scope', switched && sameScope(switched.scope, FULL) && sameScope(engine.scope, FULL), switched);
-  check('setScope: no download and no index parse again (only the file nodes)', sameScope(stagesOf(progress), ['files']), stagesOf(progress));
+  check('setScope: no download and no index parse again (only the file nodes)', sameScope(stagesOf(progress), ['files', 'started']), stagesOf(progress));
   const formatAfterScope = await engine.compile(MINIMAL, { format: 'tikz' });
   check('setScope: the new engine has the format', formatAfterScope.status === 'ok' && isPdf(formatAfterScope.pdf), brief(formatAfterScope));
   const { result: chess, rounds } = await compileInRounds(engine, chessboard);
@@ -144,6 +160,41 @@ async function run() {
   check('queue: start() and then setScope() at once give the full scope, and a compile works',
     sameScope(secondStart.scope, MEDIUM) && secondScope && sameScope(secondScope.scope, FULL) && secondCompile.status === 'ok',
     { secondStart: secondStart.scope, secondScope: secondScope && secondScope.scope, compile: brief(secondCompile) });
+  // A stop() during the worker start of a compile, at its first bundle report.
+  let stopAtStart = true;
+  const third = createTexEngine({
+    baseUrl: new URL('/', location.href).href, createWorker: () => new Worker('/js/worker.js'), scope: MEDIUM, bundles: BUNDLES,
+    onProgress: ({ stage }) => {
+      if (stage === 'bundle' && stopAtStart) {
+        stopAtStart = false;
+        third.stop();
+      }
+    },
+  });
+  const stoppedAtStart = await third.compile(MINIMAL);
+  check('stop: a stop during the start gives stopped', stoppedAtStart.status === 'stopped', stoppedAtStart);
+  const afterStartStop = await third.compile(MINIMAL);
+  check('stop: the next compile starts again', afterStartStop.status === 'ok' && isPdf(afterStartStop.pdf), brief(afterStartStop));
+  third.stop();
+  // A worker.js of another build, for example from a cache: an older one
+  // has no build in its init result, and a newer one refuses the client's
+  // build before its downloads.
+  const workerUrl = new URL('/js/worker.js', location.href).href;
+  const olderWorker = () => new Worker(URL.createObjectURL(new Blob([
+    'const post = self.postMessage.bind(self);',
+    'self.postMessage = (message, transfer) => { if (message.type === "result") delete message.result.build; post(message, transfer); };',
+    `importScripts(${JSON.stringify(workerUrl)});`,
+  ], { type: 'text/javascript' })));
+  const older = createTexEngine({ baseUrl: new URL('/', location.href).href, createWorker: olderWorker, scope: MEDIUM, bundles: BUNDLES });
+  const olderError = await older.start().then(() => null, (error) => String(error));
+  check('build: the client refuses an older worker.js', /different builds/.test(olderError ?? ''), olderError);
+  const newerWorker = new Worker('/js/worker.js');
+  const newerReply = await new Promise((resolve) => {
+    newerWorker.onmessage = ({ data }) => { if (data.type !== 'progress') resolve(data); };
+    newerWorker.postMessage({ id: 1, command: 'init', args: { baseUrl: new URL('/', location.href).href, scope: MEDIUM, bundles: BUNDLES, installedPackages: [], build: 'another' } });
+  });
+  newerWorker.terminate();
+  check('build: the worker refuses a client of another build', newerReply.type === 'error' && /different builds/.test(newerReply.error), newerReply);
   let threw = false;
   try { createTexEngine({ baseUrl: '/', createWorker: () => null, scope: [] }); } catch { threw = true; }
   check('options: an empty scope is an error', threw);

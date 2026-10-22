@@ -9,7 +9,7 @@ import { analyzeCompile, analyzeScan, type AnalysisContext, type Outcome } from 
 import { createEngine, type BusytexFactory, type CompileOutput, type Engine, type FormatOutput } from './engine';
 import { bundleFileNamesOf, bundlePackagesOf, readTarBundle, type TarBundle } from './filesystem';
 import { alternativeFileNames } from './log';
-import type { FindScopeResult, InitArguments, InitResult, Progress, ScanResult, WorkerCompileResult, WorkerFormatResult, WorkerMessage, WorkerRequest } from './protocol';
+import { buildMismatchError, libraryBuild, type DownloadProgress, type FindScopeResult, type InitArguments, type InitResult, type Progress, type ScanResult, type WorkerCompileResult, type WorkerFormatResult, type WorkerMessage, type WorkerRequest } from './protocol';
 import { scanPreamble } from './scan';
 import { buildScopeTable, fileNamesOfIndex, findScopeIn, type TexIndex } from './scope';
 
@@ -33,48 +33,83 @@ const fileNames = new Map<string, Set<string>>();
 const post = (message: WorkerMessage, transfer: Transferable[] = []) => self.postMessage(message, transfer);
 const report = (progress: Progress) => post({ type: 'progress', progress });
 
+// The files that the current run (compile or format build) read with a
+// request, for the 'run' reports. Null outside a run.
+let runReads: { files: number; bytes: number } | null = null;
+
 function fetchSync(url: string): Uint8Array {
   const request = new XMLHttpRequest();
   request.open('GET', url, false);
   request.responseType = 'arraybuffer';
   request.send(null);
   if (request.status !== 200) throw new Error(`GET ${url}: ${request.status}`);
-  return new Uint8Array(request.response as ArrayBuffer);
+  const bytes = new Uint8Array(request.response as ArrayBuffer);
+  // TeX runs synchronously, but the main thread gets each report at once.
+  if (runReads) {
+    runReads.files++;
+    runReads.bytes += bytes.length;
+    report({ stage: 'run', file: url.slice(baseUrl.length), filesRead: runReads.files, bytesRead: runReads.bytes });
+  }
+  return bytes;
 }
 
-// The worker reads only files that the app serves (for example over a
-// custom scheme, or from the app's own site), so a report at the start and
-// at the end of each file is enough. Package downloads happen in the app,
-// which reports their progress.
-async function fetchBytes(url: string, stage: Progress['stage']): Promise<Uint8Array> {
-  report({ stage, loaded: 0, total: null });
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`GET ${url}: ${response.status}`);
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  report({ stage, loaded: bytes.length, total: bytes.length });
-  return bytes;
+// The time between two reports of one download, so that a fast download
+// does not send thousands of messages.
+const REPORT_INTERVAL_MS = 50;
+
+// The response, with progress reports while its body arrives. Package
+// downloads happen in the app, which reports their progress.
+function withProgress(response: Response, stage: DownloadProgress['stage'], file: string): Response {
+  // A compressed response has the compressed size in Content-Length, but
+  // the body gives the bytes after decompression.
+  const contentLength = Number(response.headers.get('Content-Length'));
+  let total = contentLength > 0 && !response.headers.get('Content-Encoding') ? contentLength : null;
+  let loaded = 0;
+  let lastReport = performance.now();
+  report({ stage, loaded, total, file });
+  if (!response.body) return response;
+  const counter = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      loaded += chunk.length;
+      // The server can compress without telling a cross-origin reader.
+      if (total !== null && loaded > total) total = null;
+      // flush() sends the last report, so do not send it twice.
+      if (loaded !== total && performance.now() - lastReport >= REPORT_INTERVAL_MS) {
+        lastReport = performance.now();
+        report({ stage, loaded, total, file });
+      }
+      controller.enqueue(chunk);
+    },
+    flush() {
+      report({ stage, loaded, total: loaded, file });
+    },
+  });
+  return new Response(response.body.pipeThrough(counter), { status: response.status, statusText: response.statusText, headers: response.headers });
+}
+
+async function fetchWithProgress(path: string, stage: DownloadProgress['stage']): Promise<Response> {
+  const response = await fetch(baseUrl + path);
+  if (!response.ok) throw new Error(`GET ${baseUrl + path}: ${response.status}`);
+  return withProgress(response, stage, path);
+}
+
+async function fetchBytes(path: string, stage: DownloadProgress['stage']): Promise<Uint8Array> {
+  return new Uint8Array(await (await fetchWithProgress(path, stage)).arrayBuffer());
 }
 
 // Compile busytex.wasm while it downloads. compileStreaming() needs the
 // Content-Type application/wasm. Without it, compile from the bytes, as
 // busytex.js would.
-async function compileWasm(url: string): Promise<WebAssembly.Module> {
+async function compileWasm(path: string): Promise<WebAssembly.Module> {
   try {
-    return await WebAssembly.compileStreaming(fetch(url));
+    return await WebAssembly.compileStreaming(fetchWithProgress(path, 'engine'));
   } catch {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`GET ${url}: ${response.status}`);
-    return WebAssembly.compile(await response.arrayBuffer());
+    return WebAssembly.compile(await (await fetchWithProgress(path, 'engine')).arrayBuffer());
   }
 }
 
-async function fetchJson<T>(url: string, stage: Progress['stage']): Promise<T> {
-  report({ stage, loaded: 0, total: null });
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`GET ${url}: ${response.status}`);
-  const text = await response.text();
-  report({ stage, loaded: text.length, total: text.length });
-  return JSON.parse(text) as T;
+async function fetchJson<T>(path: string, stage: DownloadProgress['stage']): Promise<T> {
+  return (await (await fetchWithProgress(path, stage)).json()) as T;
 }
 
 // A download that the worker keeps. A failed one is not kept: the next
@@ -87,7 +122,7 @@ function kept<T>(promise: Promise<T>, forget: () => void): Promise<T> {
 function loadIndex(path: string): Promise<TexIndex> {
   let index = indexes.get(path);
   if (!index) {
-    index = kept(fetchJson<TexIndex>(baseUrl + path, 'index'), () => indexes.delete(path));
+    index = kept(fetchJson<TexIndex>(path, 'index'), () => indexes.delete(path));
     indexes.set(path, index);
   }
   return index;
@@ -112,13 +147,16 @@ const generatedPrefixOf = (indexPath: string) => indexPath.slice(0, indexPath.la
 function loadBundle(path: string): Promise<TarBundle> {
   let bundle = bundles.get(path);
   if (!bundle) {
-    bundle = kept(fetchBytes(baseUrl + path, 'bundle').then(readTarBundle), () => bundles.delete(path));
+    bundle = kept(fetchBytes(path, 'bundle').then(readTarBundle), () => bundles.delete(path));
     bundles.set(path, bundle);
   }
   return bundle;
 }
 
-async function init({ baseUrl: newBaseUrl, scope, bundles: bundlePaths, installedPackages }: InitArguments): Promise<InitResult> {
+async function init({ baseUrl: newBaseUrl, scope, bundles: bundlePaths, installedPackages, build }: InitArguments): Promise<InitResult> {
+  // Before the downloads. The client also compares the build of the result,
+  // for an older worker.js that does not do this.
+  if (build !== libraryBuild) throw new Error(buildMismatchError(build, libraryBuild));
   if (!scope.length) throw new Error('the scope has no index files');
   if (baseUrl && newBaseUrl !== baseUrl) throw new Error('the worker has another baseUrl; make a new worker');
   // The old engine's memory is free when the garbage collector runs.
@@ -126,7 +164,6 @@ async function init({ baseUrl: newBaseUrl, scope, bundles: bundlePaths, installe
   baseUrl = newBaseUrl;
   const startTime = performance.now();
   if (!self.busytex) {
-    report({ stage: 'engine', loaded: 0, total: null });
     self.importScripts(baseUrl + 'busytex/busytex.js');
     if (!self.busytex) throw new Error('busytex.js did not define busytex');
   }
@@ -137,7 +174,7 @@ async function init({ baseUrl: newBaseUrl, scope, bundles: bundlePaths, installe
   const loadStart = performance.now();
   const sinceLoadStart = <T>(promise: Promise<T>): Promise<[T, number]> =>
     promise.then((value) => [value, performance.now() - loadStart]);
-  wasmModule ??= kept(compileWasm(`${baseUrl}busytex/busytex.wasm`), () => { wasmModule = null; });
+  wasmModule ??= kept(compileWasm('busytex/busytex.wasm'), () => { wasmModule = null; });
   const [[compiledModule, wasmMs], [scopeIndexes, indexMs], [tarBundles, bundleMs]] = await Promise.all([
     sinceLoadStart(wasmModule),
     sinceLoadStart(Promise.all(scope.map(loadIndex))),
@@ -151,7 +188,7 @@ async function init({ baseUrl: newBaseUrl, scope, bundles: bundlePaths, installe
     }
   }
 
-  report({ stage: 'files', loaded: 0, total: null });
+  report({ stage: 'files' });
   const tableStart = performance.now();
   const scopeTable = buildScopeTable(scopeIndexes, generatedPrefixOf(scope[scope.length - 1]));
   bundlePackages = bundlePackagesOf(tarBundles, scopeTable);
@@ -167,7 +204,9 @@ async function init({ baseUrl: newBaseUrl, scope, bundles: bundlePaths, installe
     bundles: tarBundles,
     wasmModule: compiledModule,
   });
+  report({ stage: 'started' });
   return {
+    build: libraryBuild,
     scope,
     files: scopeTable.fileCount,
     timings: {
@@ -225,7 +264,26 @@ function runInfo(output: CompileOutput | FormatOutput) {
   };
 }
 
+// A run, with a 'run' report for each file that it reads with a request.
+function withRunReports<T>(run: () => T): T {
+  runReads = { files: 0, bytes: 0 };
+  try {
+    return run();
+  } finally {
+    runReads = null;
+  }
+}
+
 class EngineCrash extends Error {}
+
+// The name, the message and the stack of an error. Some stacks do not have
+// the message (Firefox), and a DOMException can have no stack.
+function errorText(error: unknown): string {
+  if (!(error instanceof Error || error instanceof DOMException)) return String(error);
+  const heading = `${error.name}: ${error.message}`;
+  const stack = error.stack ?? '';
+  return stack.includes(heading) ? stack : `${heading}\n${stack}`.trim();
+}
 
 function requireEngine(): Engine {
   if (!engine) throw new Error('the worker has no engine: send init first');
@@ -250,7 +308,7 @@ const handlers = {
       const { operations, ...scanned } = scanOf(source);
       if (scanned.status === 'needs') return { ...scanned, ...NO_RUN, pdf: null, packagesRead: [] };
     }
-    const output = current.compile(source, { formatName });
+    const output = withRunReports(() => current.compile(source, { formatName }));
     checkCrash(output);
     const outcome = outcomeOf(output, output.exitCode === 0 && output.pdf !== null);
     const common = { ...runInfo(output), packagesRead: output.packagesRead };
@@ -264,7 +322,7 @@ const handlers = {
       const { operations, ...scanned } = scanOf(source);
       if (scanned.status === 'needs') return { ...scanned, ...NO_RUN, fmt: null };
     }
-    const output = current.buildFormat({ formatName, source, mylatexformat });
+    const output = withRunReports(() => current.buildFormat({ formatName, source, mylatexformat }));
     checkCrash(output);
     const outcome = outcomeOf(output, output.exitCode === 0 && output.fmt !== null);
     return outcome.status === 'ok' ? { ...outcome, ...runInfo(output), fmt: output.fmt as Uint8Array } : { ...outcome, ...runInfo(output), fmt: null };
@@ -293,6 +351,6 @@ self.onmessage = async ({ data }: MessageEvent<WorkerRequest>) => {
     }
     post({ type: 'result', id, result }, transfer);
   } catch (error) {
-    post({ type: 'error', id, error: String((error as Error)?.stack ?? error), crashed: error instanceof EngineCrash });
+    post({ type: 'error', id, error: errorText(error), crashed: error instanceof EngineCrash });
   }
 };

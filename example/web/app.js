@@ -24,7 +24,7 @@ const tex = createTexEngine({
   createWorker: () => new Worker(new URL('./js/worker.js', import.meta.url)),
   scope: MEDIUM,
   bundles: BUNDLES,
-  onProgress: ({ stage }) => say(`Starting the engine: ${stage}…`),
+  onProgress: ({ stage }) => { if (stage !== 'run' && stage !== 'started') say(`Starting the engine: ${stage}…`); },
 });
 tex.start().then((started) => say(`Ready in ${Math.round(started.timings.totalMs)} ms.`), (error) => say(String(error)));
 
