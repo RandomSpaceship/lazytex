@@ -21,8 +21,10 @@ on:
         description: The version tag to publish (for example v0.0.1)
         required: true
 
+# actions: read lets a manual run find the check runs of its commit.
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release
@@ -48,6 +50,8 @@ jobs:
 
       # A branch can also start with "v". The tag must exist, have the form
       # of a version, and name the commit that the check workflow tested.
+      # After a check run, the "if" of the job makes sure that the check
+      # passed. A manual run looks for a successful check of the commit.
       - name: Check the tag
         run: |
           if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
@@ -55,14 +59,17 @@ jobs:
             exit 1
           fi
           commit=$(git rev-parse HEAD)
-          if [ -n "$CHECKED_COMMIT" ] && [ "$commit" != "$CHECKED_COMMIT" ]; then
-            echo "the tag $TAG names $commit, not the checked commit $CHECKED_COMMIT" >&2
-            exit 1
-          fi
-          passed=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow check --commit "$commit" --status success --json databaseId --jq length)
-          if [ "$passed" = 0 ]; then
-            echo "no successful check of $commit" >&2
-            exit 1
+          if [ -n "$CHECKED_COMMIT" ]; then
+            if [ "$commit" != "$CHECKED_COMMIT" ]; then
+              echo "the tag $TAG names $commit, not the checked commit $CHECKED_COMMIT" >&2
+              exit 1
+            fi
+          else
+            passed=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow check --commit "$commit" --status success --json databaseId --jq length)
+            if [ "$passed" = 0 ]; then
+              echo "no successful check of $commit" >&2
+              exit 1
+            fi
           fi
 
       - uses: cachix/install-nix-action@v31

@@ -117,7 +117,8 @@ It starts after a successful check of a pushed tag that starts with `v`, or
 by hand with a tag.
 
 1. Make sure that the tag is a version tag, and that it names the commit
-   that the check examined.
+   that the check examined. For a run by hand, make sure that a check of
+   the commit passed.
 2. Restore the cache of the check, so that the job does not build the parts
    again.
 3. Run `nix run .#release-assemble -- TAG out`. This runs `check_release.py`
